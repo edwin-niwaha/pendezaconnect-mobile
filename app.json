@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Pendeza Connect",
+    "slug": "pendeza-connect",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "pendezaconnect",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "org.pendeza.connect",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "backgroundColor": "#0f766e"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Pendeza Connect to take child profile photos.",
+          "photosPermission": "Allow Pendeza Connect to select child profile photos."
+        }
+      ]
+    ]
+  }
+}

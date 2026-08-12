@@ -1,0 +1,147 @@
+export type User = {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+  account_type: "staff" | "client" | "sponsor" | "guest" | string;
+  staff_role: string;
+  client_id?: number | null;
+  sponsor_id?: number | null;
+};
+
+export type Tokens = { access: string; refresh: string };
+export type AuthResponse = { access: string; refresh: string; user: User };
+
+export type Dashboard = {
+  account_type?: string;
+  sponsors?: number;
+  clients?: number;
+  staff?: number;
+  loans?: Record<string, number>;
+  payments?: Record<string, number>;
+  savings_balance?: string | number;
+};
+
+export type Sponsor = {
+  id: number;
+  prefixed_id: string;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  mobile_telephone?: string;
+  sponsorship_type?: string;
+  is_child_sponsor: boolean;
+  is_staff_sponsor: boolean;
+  is_family_supporter: boolean;
+  is_general_donor: boolean;
+  is_one_time_donor: boolean;
+};
+
+export type Client = {
+  id: number;
+  prefixed_id: string;
+  reg_number: string;
+  full_name: string;
+  email: string;
+  mobile_telephone?: string;
+  active_loans_count: number;
+  savings_balance: string;
+};
+
+export type Child = {
+  id: number;
+  prefixed_id: string;
+  full_name: string;
+  preferred_name?: string | null;
+  gender: string;
+  residence?: string | null;
+  district?: string | null;
+  is_sponsored: boolean;
+  is_departed: boolean;
+  current_picture_url?: string | null;
+};
+
+export type ChildPhotoUpload = {
+  id: number;
+  child: number;
+  picture: string;
+  picture_url?: string | null;
+  uploaded_at: string;
+  is_current: boolean;
+};
+
+export type Staff = {
+  id: number;
+  prefixed_id: string;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  mobile_telephone?: string;
+  job_title?: string;
+};
+
+export type Loan = {
+  id: number;
+  borrower: number;
+  borrower_name: string;
+  borrower_reg_number: string;
+  principal_amount: string;
+  interest_rate: string;
+  total_interest: string;
+  total_repayable: string;
+  monthly_installment: string;
+  total_outstanding?: string | null;
+  loan_period_months: number;
+  start_date: string;
+  disbursement_date?: string | null;
+  due_date?: string | null;
+  status: string;
+  loan_purpose?: string;
+};
+
+export type SavingsAccount = {
+  id: number;
+  client: number;
+  client_name: string;
+  account_number: string;
+  opening_date: string;
+  status: string;
+  balance: string;
+};
+
+export type SavingsTransaction = {
+  id: number;
+  account: number;
+  account_number: string;
+  client_name: string;
+  transaction_type: string;
+  amount: string;
+  transaction_date: string;
+  payment_method?: string | null;
+  status: string;
+};
+
+export type ClientSavings = {
+  accounts: SavingsAccount[];
+  transactions: SavingsTransaction[];
+};
+
+export type Payment = {
+  id: number;
+  sponsor: number;
+  sponsor_name: string;
+  sponsor_code: string;
+  program_name: string;
+  child_name?: string | null;
+  staff_name?: string | null;
+  amount: string;
+  payment_date: string;
+  reference?: string | null;
+  notes?: string | null;
+};
+
+export type Paginated<T> = { count: number; next?: string | null; previous?: string | null; results: T[] };
