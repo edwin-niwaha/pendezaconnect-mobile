@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="760" viewBox="0 0 360 760" role="img" aria-label="Pendeza Connect services screen preview">
+  <rect width="360" height="760" rx="34" fill="#e2e8f0"/>
+  <rect x="18" y="18" width="324" height="724" rx="28" fill="#f8fafc"/>
+  <text x="38" y="76" font-family="Arial, sans-serif" font-size="25" font-weight="800" fill="#0f172a">Focused modules</text>
+  <text x="38" y="102" font-family="Arial, sans-serif" font-size="13" fill="#64748b">Only allowed services are shown for each account.</text>
+  <rect x="38" y="134" width="284" height="96" rx="16" fill="#ffffff" stroke="#dbe4ea"/>
+  <rect x="56" y="160" width="44" height="44" rx="14" fill="#fce7f3"/>
+  <text x="116" y="174" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#0f172a">Sponsorship</text>
+  <text x="116" y="198" font-family="Arial, sans-serif" font-size="12" fill="#64748b">Sponsors, child support, and giving history.</text>
+  <rect x="38" y="252" width="284" height="96" rx="16" fill="#ffffff" stroke="#dbe4ea"/>
+  <rect x="56" y="278" width="44" height="44" rx="14" fill="#fffbeb"/>
+  <text x="116" y="292" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#0f172a">Loans</text>
+  <text x="116" y="316" font-family="Arial, sans-serif" font-size="12" fill="#64748b">Statuses, balances, and repayment visibility.</text>
+  <rect x="38" y="370" width="284" height="96" rx="16" fill="#ffffff" stroke="#dbe4ea"/>
+  <rect x="56" y="396" width="44" height="44" rx="14" fill="#dcfce7"/>
+  <text x="116" y="410" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#0f172a">Savings</text>
+  <text x="116" y="434" font-family="Arial, sans-serif" font-size="12" fill="#64748b">Balances, accounts, and transaction activity.</text>
+  <rect x="38" y="488" width="284" height="96" rx="16" fill="#ffffff" stroke="#dbe4ea"/>
+  <rect x="56" y="514" width="44" height="44" rx="14" fill="#ccfbf1"/>
+  <text x="116" y="528" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#0f172a">Child photos</text>
+  <text x="116" y="552" font-family="Arial, sans-serif" font-size="12" fill="#64748b">Capture and upload profile photos in the field.</text>
+  <rect x="38" y="686" width="284" height="40" rx="20" fill="#0f766e"/>
+  <text x="180" y="712" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#ffffff">Role-aware mobile navigation</text>
+</svg>

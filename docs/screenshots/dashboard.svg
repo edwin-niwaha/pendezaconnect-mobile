@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="760" viewBox="0 0 360 760" role="img" aria-label="Pendeza Connect dashboard screen preview">
+  <rect width="360" height="760" rx="34" fill="#e2e8f0"/>
+  <rect x="18" y="18" width="324" height="724" rx="28" fill="#f8fafc"/>
+  <rect x="38" y="52" width="284" height="124" rx="18" fill="#0f766e"/>
+  <text x="58" y="105" font-family="Arial, sans-serif" font-size="28" font-weight="800" fill="#ffffff">Welcome</text>
+  <text x="58" y="135" font-family="Arial, sans-serif" font-size="14" fill="#ccfbf1">Your focused hub for sponsorship, loans, and savings.</text>
+  <text x="38" y="216" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#0f172a">Today at a glance</text>
+  <rect x="38" y="238" width="134" height="94" rx="14" fill="#ffffff" stroke="#dbe4ea"/>
+  <text x="105" y="282" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="800" fill="#0f766e">24</text>
+  <text x="105" y="306" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#64748b">SPONSORS</text>
+  <rect x="188" y="238" width="134" height="94" rx="14" fill="#ffffff" stroke="#dbe4ea"/>
+  <text x="255" y="282" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="800" fill="#0f766e">86</text>
+  <text x="255" y="306" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#64748b">CLIENTS</text>
+  <rect x="38" y="348" width="134" height="94" rx="14" fill="#ffffff" stroke="#dbe4ea"/>
+  <text x="105" y="392" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="800" fill="#f2b84b">12</text>
+  <text x="105" y="416" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#64748b">LOANS</text>
+  <rect x="188" y="348" width="134" height="94" rx="14" fill="#ffffff" stroke="#dbe4ea"/>
+  <text x="255" y="392" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="#16a34a">UGX</text>
+  <text x="255" y="416" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#64748b">SAVINGS</text>
+  <text x="38" y="486" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#0f172a">Core services</text>
+  <rect x="38" y="508" width="284" height="70" rx="14" fill="#ffffff" stroke="#dbe4ea"/>
+  <circle cx="74" cy="543" r="16" fill="#fce7f3"/>
+  <text x="104" y="538" font-family="Arial, sans-serif" font-size="16" font-weight="800" fill="#0f172a">Sponsorship</text>
+  <text x="104" y="560" font-family="Arial, sans-serif" font-size="12" fill="#64748b">Giving history and child support.</text>
+  <rect x="38" y="594" width="284" height="70" rx="14" fill="#ffffff" stroke="#dbe4ea"/>
+  <circle cx="74" cy="629" r="16" fill="#fffbeb"/>
+  <text x="104" y="624" font-family="Arial, sans-serif" font-size="16" font-weight="800" fill="#0f172a">Loans</text>
+  <text x="104" y="646" font-family="Arial, sans-serif" font-size="12" fill="#64748b">Balances, statuses, and due dates.</text>
+  <rect x="38" y="692" width="284" height="2" fill="#e2e8f0"/>
+</svg>
