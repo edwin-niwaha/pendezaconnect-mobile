@@ -4,6 +4,7 @@
     "slug": "pendeza-connect",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/app-icon.png",
     "scheme": "pendezaconnect",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
@@ -16,8 +17,14 @@
       "package": "org.pendeza.connect",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#0f766e"
       }
+    },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     },
     "web": {
       "bundler": "metro"
@@ -26,6 +33,7 @@
       "expo-router",
       "expo-secure-store",
       "expo-web-browser",
+      "@react-native-google-signin/google-signin",
       [
         "expo-image-picker",
         {

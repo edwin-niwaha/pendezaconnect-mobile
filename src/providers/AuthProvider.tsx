@@ -9,7 +9,7 @@ type AuthContextValue = {
   loading: boolean;
   isAuthenticated: boolean;
   login: (payload: { username: string; password: string }) => Promise<void>;
-  loginWithGoogleToken: (idToken: string) => Promise<void>;
+  loginWithGoogleToken: (accessToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
 };
@@ -37,10 +37,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const loginWithGoogleToken = useCallback(async (idToken: string) => {
+  const loginWithGoogleToken = useCallback(async (accessToken: string) => {
     setLoading(true);
     try {
-      const response = await authApi.googleLogin(idToken);
+      const response = await authApi.googleLogin(accessToken);
       await saveTokens({ access: response.access, refresh: response.refresh });
       setUser(response.user);
     } finally {

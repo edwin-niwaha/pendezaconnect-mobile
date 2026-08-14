@@ -13,7 +13,7 @@ export function ServicesScreen() {
   const canUseSavings = staff || isClientAccount(user);
 
   return (
-    <Screen title="Services">
+    <Screen>
       <SectionHeader title="Focused modules" subtitle="Fewer tabs, clearer paths. Only allowed services are shown for your account." />
       {canUseSponsorship ? (
         <FeatureCard accent="#db2777" icon="heart" onPress={() => router.push("/(tabs)/sponsors")} subtitle="Sponsors, child support, and giving history." title="Sponsorship" />

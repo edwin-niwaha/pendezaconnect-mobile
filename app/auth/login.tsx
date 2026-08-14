@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as Google from "expo-auth-session/providers/google";
+import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Redirect, router } from "expo-router";
 import { getErrorMessage } from "@/api/client";
@@ -16,6 +18,8 @@ const googleExpoClientId = process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || "";
 const googleAndroidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "";
 const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || googleExpoClientId || "";
+const isNativeMobile = Platform.OS === "android" || Platform.OS === "ios";
+const isExpoGo = Constants.appOwnership === "expo";
 const googleConfigured =
   Platform.OS === "web"
     ? Boolean(googleWebClientId)
@@ -24,8 +28,6 @@ const googleConfigured =
       : Platform.OS === "ios"
         ? Boolean(googleIosClientId || googleExpoClientId || googleWebClientId)
         : Boolean(googleExpoClientId || googleWebClientId);
-const missingGoogleClientId = "missing-google-client-id.apps.googleusercontent.com";
-
 export default function Login() {
   const { isAuthenticated, loading, login, loginWithGoogleToken } = useAuth();
   const [username, setUsername] = useState("");
@@ -34,18 +36,24 @@ export default function Login() {
   const [notice, setNotice] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
   const [handledGoogleToken, setHandledGoogleToken] = useState("");
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    androidClientId: googleAndroidClientId || googleExpoClientId || missingGoogleClientId,
-    clientId: googleExpoClientId || googleWebClientId || missingGoogleClientId,
-    iosClientId: googleIosClientId || googleExpoClientId || missingGoogleClientId,
-    webClientId: googleWebClientId || missingGoogleClientId
+  const redirectUri = useMemo(
+    () => AuthSession.makeRedirectUri({ scheme: "pendezaconnect" }),
+    []
+  );
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: googleAndroidClientId || googleExpoClientId || undefined,
+    clientId: googleExpoClientId || googleWebClientId || undefined,
+    iosClientId: googleIosClientId || googleExpoClientId || undefined,
+    redirectUri,
+    scopes: ["openid", "profile", "email"],
+    webClientId: googleWebClientId || undefined
   });
 
-  async function handleGoogleResponse(idToken: string) {
+  async function handleGoogleResponse(accessToken: string) {
     setError("");
     setGoogleLoading(true);
     try {
-      await loginWithGoogleToken(idToken);
+      await loginWithGoogleToken(accessToken);
       router.replace("/(tabs)");
     } catch (err) {
       setError(getErrorMessage(err, "Google sign-in failed."));
@@ -55,12 +63,101 @@ export default function Login() {
   }
 
   useEffect(() => {
-    const idToken = response?.type === "success" ? response.params.id_token : "";
-    if (idToken && idToken !== handledGoogleToken && !googleLoading) {
-      setHandledGoogleToken(idToken);
-      void handleGoogleResponse(idToken);
+    const accessToken =
+      response?.type === "success" ? response.authentication?.accessToken || "" : "";
+    if (accessToken && accessToken !== handledGoogleToken && !googleLoading) {
+      setHandledGoogleToken(accessToken);
+      void handleGoogleResponse(accessToken);
+    } else if (response && response.type !== "success") {
+      setGoogleLoading(false);
     }
   }, [googleLoading, handledGoogleToken, response]);
+
+  async function startGoogleSignIn() {
+    setError("");
+
+    if (isNativeMobile) {
+      if (isExpoGo) {
+        setError(
+          "Google sign-in needs an Android development build. Run npm run mobile, then open the installed Pendeza Connect app instead of Expo Go."
+        );
+        return;
+      }
+
+      if (!googleWebClientId) {
+        setError("Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in .env.");
+        return;
+      }
+
+      setGoogleLoading(true);
+      try {
+        const { GoogleSignin } = await import("@react-native-google-signin/google-signin");
+
+        GoogleSignin.configure({
+          scopes: ["openid", "profile", "email"],
+          webClientId: googleWebClientId,
+          iosClientId: googleIosClientId || undefined,
+          offlineAccess: false
+        });
+
+        if (Platform.OS === "android") {
+          await GoogleSignin.hasPlayServices({
+            showPlayServicesUpdateDialog: true
+          });
+        }
+
+        const signInResponse = await GoogleSignin.signIn();
+        if ("type" in signInResponse && signInResponse.type === "cancelled") {
+          return;
+        }
+
+        const tokens = await GoogleSignin.getTokens();
+        const accessToken = tokens.accessToken;
+        if (!accessToken) {
+          setError("Google did not return an access token.");
+          return;
+        }
+
+        await loginWithGoogleToken(accessToken);
+        router.replace("/(tabs)");
+      } catch (err) {
+        const code =
+          typeof err === "object" && err && "code" in err
+            ? String((err as { code?: string }).code)
+            : "";
+        const message = err instanceof Error ? err.message : String(err || "");
+
+        if (code === "SIGN_IN_CANCELLED" || message.includes("SIGN_IN_CANCELLED")) {
+          return;
+        }
+
+        if (message.includes("Native module") || message.includes("TurboModule")) {
+          setError(
+            "Google sign-in is not available in Expo Go. Run npm run mobile to install the Android development build."
+          );
+          return;
+        }
+
+        setError(getErrorMessage(err, "Google sign-in failed."));
+      } finally {
+        setGoogleLoading(false);
+      }
+      return;
+    }
+
+    if (!request) {
+      setError("Google sign-in is not ready yet. Please try again.");
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      await promptAsync();
+    } catch (err) {
+      setError(getErrorMessage(err, "Google sign-in failed."));
+      setGoogleLoading(false);
+    }
+  }
 
   if (isAuthenticated) return <Redirect href="/(tabs)" />;
 
@@ -107,9 +204,8 @@ export default function Login() {
 
       <View style={styles.signInCard}>
         <Text style={styles.cardTitle}>Sign in</Text>
-        <Text style={styles.cardCopy}>Access your dashboard based on your account role.</Text>
 
-        <Pressable disabled={!googleConfigured || !request || loading || googleLoading} onPress={() => promptAsync()} style={({ pressed }) => [styles.googleButton, pressed && styles.pressed]}>
+        <Pressable disabled={!googleConfigured || (!isNativeMobile && !request) || loading || googleLoading} onPress={startGoogleSignIn} style={({ pressed }) => [styles.googleButton, pressed && styles.pressed]}>
           {googleLoading ? <ActivityIndicator color={colors.text} /> : <Ionicons name="logo-google" color={colors.text} size={18} />}
           <Text style={styles.googleButtonText}>{googleLoading ? "Connecting to Google..." : googleConfigured ? "Continue with Google" : "Google sign-in not configured"}</Text>
         </Pressable>

@@ -4,6 +4,9 @@ export type User = {
   first_name: string;
   last_name: string;
   email: string;
+  avatar_url?: string | null;
+  profile_photo_url?: string | null;
+  bio?: string | null;
   role: string;
   account_type: "staff" | "client" | "sponsor" | "guest" | string;
   staff_role: string;
@@ -19,6 +22,8 @@ export type Dashboard = {
   sponsors?: number;
   clients?: number;
   staff?: number;
+  children?: Record<string, number>;
+  staff_workforce?: Record<string, number>;
   loans?: Record<string, number>;
   payments?: Record<string, number>;
   savings_balance?: string | number;

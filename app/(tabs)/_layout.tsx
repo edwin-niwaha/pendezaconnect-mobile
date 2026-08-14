@@ -1,7 +1,8 @@
 ﻿import { Ionicons } from "@expo/vector-icons";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, router } from "expo-router";
+import { Pressable } from "react-native";
 import { LoadingState } from "@/components/Screen";
-import { colors } from "@/constants/theme";
+import { colors, spacing } from "@/constants/theme";
 import { useAuth } from "@/providers/AuthProvider";
 
 const icons = {
@@ -17,6 +18,22 @@ const icons = {
   account: "person-circle-outline"
 } as const;
 
+function goBack() {
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+  router.replace("/(tabs)");
+}
+
+function HeaderBackButton() {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={goBack} style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
+      <Ionicons name="arrow-back" color={colors.text} size={24} />
+    </Pressable>
+  );
+}
+
 export default function TabsLayout() {
   const { ready, isAuthenticated } = useAuth();
   if (!ready) return <LoadingState />;
@@ -26,7 +43,9 @@ export default function TabsLayout() {
     <Tabs screenOptions={({ route }) => ({
       tabBarActiveTintColor: colors.primary,
       tabBarInactiveTintColor: colors.muted,
+      headerLeft: route.name === "index" ? undefined : () => <HeaderBackButton />,
       headerStyle: { backgroundColor: colors.surface },
+      headerTitle: route.name === "index" ? "Home" : "",
       headerTitleStyle: { color: colors.text },
       tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name as keyof typeof icons] ?? "ellipse-outline"} color={color} size={size} />
     })}>

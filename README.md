@@ -20,7 +20,11 @@ Expo/React Native MVP for the Sponsorship MIS mobile companion app.
 cd "D:\PERPETUAL PROJECTS\PYTHON\PendezaConnect"
 copy .env.example .env
 npm install
+# For Expo
 npm run start
+
+#For Android to support google-signin
+npm run mobile
 ```
 
 For Android emulator against local Django, use:
@@ -45,6 +49,8 @@ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
 ```
 
 The Django backend also needs `MOBILE_GOOGLE_CLIENT_IDS` set to the comma-separated client IDs that should be accepted for mobile Google ID tokens.
+
+For Android builds, download the Firebase Android config from the Firebase console and save it as `google-services.json` in this directory. This file contains project credentials, so it is intentionally ignored by Git. Use `google-services.example.json` only as a shape/reference for local setup.
 
 Start Django separately from `D:\PERPETUAL PROJECTS\PYTHON\sponsorship_mis`:
 
