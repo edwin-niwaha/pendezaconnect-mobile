@@ -1,4 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+export { SponsorsOptimizedScreen as SponsorsScreen } from "./SponsorsOptimizedScreen";
+/*
+import { router } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FeatureCard, SectionHeader, StatusBadge } from "@/components/Polished";
 import { LoadingState, Screen } from "@/components/Screen";
 import { SearchBox } from "@/components/SearchBox";
@@ -37,14 +40,14 @@ export function SponsorsScreen() {
           item.is_one_time_donor ? "One-time" : ""
         ].filter(Boolean);
         return (
-          <View key={item.id} style={styles.card}>
+          <Pressable key={item.id} onPress={() => router.push(`/(tabs)/sponsors/${item.id}`)} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
             <View style={styles.rowTop}>
               <Text style={styles.title}>{title}</Text>
               <StatusBadge tone={item.is_child_sponsor || item.is_staff_sponsor ? "success" : "info"} text={sponsorTypes[0] || "Sponsor"} />
             </View>
             <Text style={styles.subtitle}>{joinMeta([item.prefixed_id, item.email || "No email", item.mobile_telephone])}</Text>
             <Text style={styles.meta}>{sponsorTypes.length ? sponsorTypes.join(" · ") : item.sponsorship_type || "Sponsor"}</Text>
-          </View>
+          </Pressable>
         );
       }) : <ResourceEmpty text="No sponsor records available for your account." />}
     </Screen>
@@ -54,7 +57,9 @@ export function SponsorsScreen() {
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.md, padding: spacing.lg },
   meta: { color: colors.primaryDark, fontSize: 12, fontWeight: "800", marginTop: spacing.sm, textTransform: "uppercase" },
+  pressed: { opacity: 0.78 },
   rowTop: { alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" },
   subtitle: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
   title: { color: colors.text, flex: 1, fontSize: 17, fontWeight: "900" }
 });
+*/

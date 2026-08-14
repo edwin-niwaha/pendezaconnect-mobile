@@ -1,3 +1,5 @@
+export { LoansOptimizedScreen as LoansScreen } from "./LoansOptimizedScreen";
+/*
 import { StyleSheet, Text, View } from "react-native";
 import { AmountRow, FeatureCard, SectionHeader, StatusBadge } from "@/components/Polished";
 import { LoadingState, Screen } from "@/components/Screen";
@@ -73,3 +75,4 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
   title: { color: colors.text, flex: 1, fontSize: 17, fontWeight: "900" }
 });
+*/

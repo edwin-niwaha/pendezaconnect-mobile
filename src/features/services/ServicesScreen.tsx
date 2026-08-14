@@ -25,7 +25,16 @@ export function ServicesScreen() {
         <FeatureCard accent="#16a34a" icon="wallet" onPress={() => router.push("/(tabs)/savings")} subtitle="Savings balances, accounts, and recent transaction activity." title="Savings" />
       ) : null}
       {staff ? (
+        <FeatureCard accent="#0891b2" icon="people" onPress={() => router.push("/(tabs)/clients")} subtitle="Open the paginated client list and view client details." title="Client management" />
+      ) : null}
+      {staff ? (
         <FeatureCard accent={colors.primaryDark} icon="camera" onPress={() => router.push("/(tabs)/children")} subtitle="Capture and upload child profile photos in the field." title="Child photos" />
+      ) : null}
+      {staff ? (
+        <FeatureCard accent="#7c3aed" icon="briefcase" onPress={() => router.push("/(tabs)/staff")} subtitle="Manage staff records and profile photos." title="Staff photos" />
+      ) : null}
+      {staff ? (
+        <FeatureCard accent={colors.accent} icon="image" onPress={() => router.push("/(tabs)/client-photos")} subtitle="Review authorized client profile photos with progressive loading." title="Client photos" />
       ) : null}
     </Screen>
   );

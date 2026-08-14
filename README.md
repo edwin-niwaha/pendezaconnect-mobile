@@ -101,6 +101,43 @@ Run type checks:
 npm run typecheck
 ```
 
+## Android Release Builds
+
+This project includes EAS profiles for development, preview, and production Android builds.
+
+Production builds must set a real HTTPS API URL. The app intentionally blocks production startup when `EXPO_PUBLIC_API_BASE_URL` is missing or points to `localhost`, `127.0.0.1`, `10.0.2.2`, or any non-HTTPS URL.
+
+Preview build:
+
+```powershell
+eas build --platform android --profile preview
+```
+
+Play Store production build:
+
+```powershell
+eas build --platform android --profile production
+```
+
+Before building for production, configure:
+
+- `EXPO_PUBLIC_API_BASE_URL=https://YOUR_PRODUCTION_DOMAIN/api/v1`
+- `EXPO_PUBLIC_APP_ENV=production`
+- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+- `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
+- `google-services.json` for package `org.pendeza.connect`
+
+## Play Store Checklist
+
+- Production backend is deployed over HTTPS.
+- `MOBILE_GOOGLE_CLIENT_IDS` on the backend matches the mobile Google/Firebase project.
+- Android package is `org.pendeza.connect`.
+- Android `versionCode` is incremented for each release.
+- Camera and photo permissions are justified by child profile photo and avatar upload workflows.
+- Privacy policy URL is available for Play Store listing.
+- Data Safety form accounts for login/profile data, profile images, child photos captured by authorized staff, and financial records displayed from the secure backend.
+- Username/password login, Google sign-in, token refresh, logout, avatar upload, and child photo upload are smoke tested on a release or preview build.
+
 ## Scripts
 
 | Command | Purpose |

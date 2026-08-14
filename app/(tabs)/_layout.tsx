@@ -10,6 +10,7 @@ const icons = {
   services: "apps-outline",
   sponsors: "heart-outline",
   clients: "people-outline",
+  "client-photos": "image-outline",
   children: "camera-outline",
   staff: "briefcase-outline",
   loans: "cash-outline",
@@ -52,10 +53,16 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: "Home" }} />
       <Tabs.Screen name="services" options={{ title: "Services" }} />
       <Tabs.Screen name="sponsors" options={{ title: "Sponsorship", href: null }} />
+      <Tabs.Screen name="sponsors/[id]" options={{ title: "Sponsor Details", href: null }} />
       <Tabs.Screen name="clients" options={{ title: "Clients", href: null }} />
+      <Tabs.Screen name="clients/[id]" options={{ title: "Client Details", href: null }} />
+      <Tabs.Screen name="client-photos" options={{ title: "Client Photos", href: null }} />
       <Tabs.Screen name="children" options={{ title: "Children", href: null }} />
+      <Tabs.Screen name="children/[id]" options={{ title: "Child Details", href: null }} />
       <Tabs.Screen name="staff" options={{ title: "Staff", href: null }} />
+      <Tabs.Screen name="staff/[id]" options={{ title: "Staff Details", href: null }} />
       <Tabs.Screen name="loans" options={{ title: "Loans", href: null }} />
+      <Tabs.Screen name="loans/[id]" options={{ title: "Loan Details", href: null }} />
       <Tabs.Screen name="savings" options={{ title: "Savings", href: null }} />
       <Tabs.Screen name="payments" options={{ title: "Payments", href: null }} />
       <Tabs.Screen name="account" options={{ title: "Account" }} />

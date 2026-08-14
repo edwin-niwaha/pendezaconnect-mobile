@@ -6,7 +6,7 @@ import { router } from "expo-router";
 import { authApi } from "@/api/services";
 import { getErrorMessage } from "@/api/client";
 import { Screen } from "@/components/Screen";
-import { SectionHeader, StatusBadge } from "@/components/Polished";
+import { StatusBadge } from "@/components/Polished";
 import { colors, radius, spacing } from "@/constants/theme";
 import { useAuth } from "@/providers/AuthProvider";
 
@@ -52,6 +52,7 @@ export default function Account() {
   const [resetError, setResetError] = useState("");
   const [resetMessage, setResetMessage] = useState("");
   const [resetSending, setResetSending] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<"profile" | "security" | "session">("profile");
   const [visiblePasswords, setVisiblePasswords] = useState<Record<PasswordField, boolean>>({
     confirmPassword: false,
     currentPassword: false,
@@ -228,8 +229,8 @@ export default function Account() {
         </View>
       </View>
 
-      <SectionHeader title="Profile" subtitle="Keep your account details current across Pendeza Connect." />
-      <View style={styles.card}>
+      <AccountSection active={expandedSection === "profile"} icon="person-outline" onPress={() => setExpandedSection("profile")} subtitle="Name, email, photo, and bio" title="Profile">
+        <View style={styles.card}>
         <LabeledInput label="Username" onChangeText={(value) => updateProfileField("username", value)} value={profile.username} autoCapitalize="none" />
         <Text style={styles.fieldHint}>Use 3-100 letters, numbers, dots, dashes, or underscores.</Text>
         <View style={styles.twoColumn}>
@@ -241,10 +242,11 @@ export default function Account() {
         <Text style={styles.fieldHint}>{profile.bio.trim().length}/500 characters</Text>
         <Feedback error={profileError} message={profileMessage} />
         <PrimaryButton icon="save-outline" loading={profileSaving} onPress={saveProfile} text="Save profile" />
-      </View>
+        </View>
+      </AccountSection>
 
-      <SectionHeader title="Security" subtitle="Manage password changes and recovery options." />
-      <View style={styles.card}>
+      <AccountSection active={expandedSection === "security"} icon="shield-checkmark-outline" onPress={() => setExpandedSection("security")} subtitle="Password and recovery" title="Account & Security">
+        <View style={styles.card}>
         <PasswordInput label="Current password" onToggle={() => togglePassword("currentPassword")} onChangeText={setCurrentPassword} secure={!visiblePasswords.currentPassword} value={currentPassword} />
         <PasswordInput label="New password" onToggle={() => togglePassword("newPassword")} onChangeText={setNewPassword} secure={!visiblePasswords.newPassword} value={newPassword} />
         <PasswordInput label="Confirm new password" onToggle={() => togglePassword("confirmPassword")} onChangeText={setConfirmPassword} secure={!visiblePasswords.confirmPassword} value={confirmPassword} />
@@ -257,17 +259,51 @@ export default function Account() {
         <LabeledInput label="Reset email" onChangeText={setResetEmail} value={resetEmail} autoCapitalize="none" keyboardType="email-address" />
         <Feedback error={resetError} message={resetMessage} />
         <SecondaryButton icon="mail-outline" loading={resetSending} onPress={sendResetLink} text="Send reset instructions" />
-      </View>
+        </View>
+      </AccountSection>
 
-      <SectionHeader title="Session" />
-      <View style={styles.card}>
+      <AccountSection active={expandedSection === "session"} icon="phone-portrait-outline" onPress={() => setExpandedSection("session")} subtitle="Current device access" title="Session">
+        <View style={styles.card}>
         <Text style={styles.helpText}>Signed in as {profile.username || "this user"}. Signing out only affects this device.</Text>
         <Pressable onPress={confirmSignOut} style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
           <Ionicons name="log-out-outline" color={colors.danger} size={18} />
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>
-      </View>
+        </View>
+      </AccountSection>
     </Screen>
+  );
+}
+
+function AccountSection({
+  active,
+  children,
+  icon,
+  onPress,
+  subtitle,
+  title
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  onPress: () => void;
+  subtitle: string;
+  title: string;
+}) {
+  return (
+    <View style={styles.sectionWrap}>
+      <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.sectionButton, pressed && styles.pressed]}>
+        <View style={styles.sectionIcon}>
+          <Ionicons name={icon} color={colors.primaryDark} size={20} />
+        </View>
+        <View style={styles.sectionCopy}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          <Text style={styles.sectionSubtitle}>{subtitle}</Text>
+        </View>
+        <Ionicons name={active ? "chevron-up" : "chevron-down"} color={colors.muted} size={20} />
+      </Pressable>
+      {active ? children : null}
+    </View>
   );
 }
 
@@ -350,6 +386,12 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: "white", fontWeight: "900" },
   secondaryButton: { alignItems: "center", backgroundColor: colors.primarySoft, borderColor: "#99f6e4", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, justifyContent: "center", padding: spacing.md },
   secondaryButtonText: { color: colors.primaryDark, fontWeight: "900" },
+  sectionButton: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.md, marginBottom: spacing.md, padding: spacing.lg },
+  sectionCopy: { flex: 1 },
+  sectionIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 16, height: 40, justifyContent: "center", width: 40 },
+  sectionSubtitle: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
+  sectionTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
+  sectionWrap: { marginBottom: spacing.md },
   signOutButton: { alignItems: "center", alignSelf: "flex-start", borderColor: "#fecaca", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   signOutText: { color: colors.danger, fontWeight: "900" },
   subTitle: { color: colors.text, fontSize: 17, fontWeight: "900", marginBottom: spacing.xs },

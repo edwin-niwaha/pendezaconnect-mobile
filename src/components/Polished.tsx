@@ -9,10 +9,18 @@ export function StatusBadge({ tone = "neutral", text }: { tone?: "success" | "wa
   return <Text style={[styles.badge, styles[`${tone}Badge`]]}>{text}</Text>;
 }
 
-export function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+export function SectionHeader({ actionLabel, onAction, subtitle, title }: { actionLabel?: string; onAction?: () => void; subtitle?: string; title: string }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.sectionTop}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {actionLabel && onAction ? (
+          <Pressable accessibilityRole="button" onPress={onAction} style={({ pressed }) => [styles.sectionAction, pressed && styles.pressed]}>
+            <Text style={styles.sectionActionText}>{actionLabel}</Text>
+            <Ionicons name="chevron-forward" color={colors.primaryDark} size={16} />
+          </Pressable>
+        ) : null}
+      </View>
       {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
     </View>
   );
@@ -72,6 +80,17 @@ export function AmountRow({ label, value, tone = "neutral" }: { label: string; v
   );
 }
 
+export function SkeletonCard({ rows = 3 }: { rows?: number }) {
+  return (
+    <View style={styles.skeletonCard}>
+      <View style={styles.skeletonTitle} />
+      {Array.from({ length: rows }).map((_, index) => (
+        <View key={index} style={[styles.skeletonLine, index === rows - 1 && styles.skeletonShort]} />
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   amountLabel: { color: colors.muted, fontWeight: "700" },
   amountRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm },
@@ -93,8 +112,15 @@ const styles = StyleSheet.create({
   noticeText: { color: colors.primaryDark, flex: 1, fontWeight: "700", lineHeight: 20 },
   pressed: { opacity: 0.78 },
   section: { marginBottom: spacing.md, marginTop: spacing.sm },
+  sectionAction: { alignItems: "center", flexDirection: "row", gap: spacing.xs, paddingVertical: spacing.xs },
+  sectionActionText: { color: colors.primaryDark, fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
   sectionSubtitle: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
+  sectionTop: { alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" },
   sectionTitle: { color: colors.text, fontSize: 20, fontWeight: "900" },
+  skeletonCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, marginBottom: spacing.md, padding: spacing.lg },
+  skeletonLine: { backgroundColor: "#e2e8f0", borderRadius: radius.sm, height: 12, width: "100%" },
+  skeletonShort: { width: "58%" },
+  skeletonTitle: { backgroundColor: "#cbd5e1", borderRadius: radius.sm, height: 18, width: "44%" },
   successBadge: { backgroundColor: "#dcfce7", color: colors.success },
   successText: { color: colors.success },
   warningBadge: { backgroundColor: "#fef3c7", color: colors.warning }

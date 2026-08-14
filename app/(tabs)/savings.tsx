@@ -1,3 +1,3 @@
-import { SavingsScreen } from "@/features/savings/SavingsScreen";
+import { SavingsOptimizedScreen } from "@/features/savings/SavingsOptimizedScreen";
 
-export default SavingsScreen;
+export default SavingsOptimizedScreen;

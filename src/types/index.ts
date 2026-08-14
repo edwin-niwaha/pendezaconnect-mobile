@@ -38,11 +38,16 @@ export type Sponsor = {
   email: string;
   mobile_telephone?: string;
   sponsorship_type?: string;
+  current_picture_url?: string | null;
+  picture_url?: string | null;
+  photo_url?: string | null;
+  thumbnail_url?: string | null;
   is_child_sponsor: boolean;
   is_staff_sponsor: boolean;
   is_family_supporter: boolean;
   is_general_donor: boolean;
   is_one_time_donor: boolean;
+  is_departed?: boolean;
 };
 
 export type Client = {
@@ -52,6 +57,10 @@ export type Client = {
   full_name: string;
   email: string;
   mobile_telephone?: string;
+  current_picture_url?: string | null;
+  picture_url?: string | null;
+  photo_url?: string | null;
+  thumbnail_url?: string | null;
   active_loans_count: number;
   savings_balance: string;
 };
@@ -87,6 +96,25 @@ export type Staff = {
   email: string;
   mobile_telephone?: string;
   job_title?: string;
+  current_picture_url?: string | null;
+  picture_url?: string | null;
+  photo_url?: string | null;
+  thumbnail_url?: string | null;
+  is_sponsored?: boolean;
+  is_departed?: boolean;
+};
+
+export type SponsorRelatedPayment = {
+  id: number;
+  sponsor: number;
+  sponsor_name: string;
+  child_name?: string | null;
+  staff_name?: string | null;
+  amount: string;
+  payment_date: string;
+  month?: string | number | null;
+  payment_year?: string | number | null;
+  is_valid?: boolean;
 };
 
 export type Loan = {
@@ -106,6 +134,36 @@ export type Loan = {
   due_date?: string | null;
   status: string;
   loan_purpose?: string;
+  reason_for_rejection?: string | null;
+  reason_for_approval?: string | null;
+  documents?: LoanDocument[];
+  missing_required_documents?: Array<{ type: string; label: string }>;
+  can_approve?: boolean;
+  can_reject?: boolean;
+  can_update?: boolean;
+  can_delete?: boolean;
+  can_disburse?: boolean;
+};
+
+export type LoanDocument = {
+  id: number;
+  loan: number;
+  document_type: string;
+  document_type_label: string;
+  description?: string;
+  file_url?: string | null;
+  created_at: string;
+};
+
+export type LoanApplicationPayload = {
+  principal_amount: string;
+  loan_purpose: string;
+  loan_period_months: string;
+  start_date?: string;
+  interest_rate?: string;
+  reason_for_approval?: string;
+  national_id?: { uri: string; fileName?: string | null; mimeType?: string | null } | null;
+  bank_statement?: { uri: string; fileName?: string | null; mimeType?: string | null } | null;
 };
 
 export type SavingsAccount = {
@@ -147,6 +205,12 @@ export type Payment = {
   payment_date: string;
   reference?: string | null;
   notes?: string | null;
+};
+
+export type SponsorPayments = {
+  child_payments: SponsorRelatedPayment[];
+  staff_payments: SponsorRelatedPayment[];
+  sponsor_payments: Payment[];
 };
 
 export type Paginated<T> = { count: number; next?: string | null; previous?: string | null; results: T[] };

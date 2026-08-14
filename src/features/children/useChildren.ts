@@ -1,8 +1,8 @@
 import { useCallback } from "react";
-import { listChildren } from "@/api/children";
-import { useSearchableResource } from "@/features/shared/useSearchableResource";
+import { listChildrenPage } from "@/api/children";
+import { usePaginatedResource } from "@/features/shared/usePaginatedResource";
 
-export function useChildren() {
-  const loader = useCallback((search: string) => listChildren(search), []);
-  return useSearchableResource(loader);
+export function useChildren(scope = "") {
+  const loader = useCallback(({ page, search }: { page: number; search: string }) => listChildrenPage({ page, scope, search }), [scope]);
+  return usePaginatedResource(loader);
 }

@@ -1,8 +1,8 @@
 ﻿import { useCallback } from "react";
-import { listStaff } from "@/api/staff";
-import { useSearchableResource } from "@/features/shared/useSearchableResource";
+import { listStaffPage } from "@/api/staff";
+import { usePaginatedResource } from "@/features/shared/usePaginatedResource";
 
-export function useStaff() {
-  const loader = useCallback((search: string) => listStaff(search), []);
-  return useSearchableResource(loader);
+export function useStaff(scope = "") {
+  const loader = useCallback(({ page, search }: { page: number; search: string }) => listStaffPage({ page, scope, search }), [scope]);
+  return usePaginatedResource(loader);
 }

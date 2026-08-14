@@ -1,5 +1,5 @@
 import { api } from "@/api/client";
-import { listClients } from "@/api/clients";
+import { listClientsPage } from "@/api/clients";
 import type { ClientSavings, SavingsAccount, SavingsTransaction } from "@/types";
 
 export async function getClientSavings(clientId: number) {
@@ -8,7 +8,8 @@ export async function getClientSavings(clientId: number) {
 }
 
 export async function getOperationalSavings(search = "") {
-  const clients = await listClients(search);
+  const clientsPage = await listClientsPage({ page: 1, search });
+  const clients = clientsPage.results;
   const accounts: SavingsAccount[] = clients.map((client) => ({
     id: client.id,
     client: client.id,

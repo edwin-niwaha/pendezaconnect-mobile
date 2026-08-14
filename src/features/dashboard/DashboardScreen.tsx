@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FeatureCard, SectionHeader } from "@/components/Polished";
 import { EmptyState, LoadingState, Screen } from "@/components/Screen";
 import { colors, radius, spacing } from "@/constants/theme";
@@ -30,8 +30,13 @@ export function DashboardScreen() {
   return (
     <Screen>
       <View style={styles.hero}>
-        <Text style={styles.heroTitle}>Welcome, {firstName}</Text>
-        <Text style={styles.heroCopy}>Your focused hub for sponsorship, loans, and savings operations.</Text>
+        <View>
+          <Text style={styles.heroKicker}>Pendeza Connect</Text>
+          <Text style={styles.heroTitle}>Welcome, {firstName}</Text>
+        </View>
+        <View style={styles.heroBadge}>
+          <Text style={styles.heroBadgeText}>{formatLabel(accountType || "account")}</Text>
+        </View>
       </View>
 
       <ResourceError message={error} />
@@ -40,21 +45,21 @@ export function DashboardScreen() {
         <>
           <SectionHeader title="Today at a glance" subtitle="Role-aware summaries without opening restricted sections." />
           <View style={styles.summaryGrid}>
-            {typeof data.sponsors === "number" ? <MiniStat label="Sponsors" value={data.sponsors} /> : null}
-            {typeof data.clients === "number" ? <MiniStat label="Clients" value={data.clients} /> : null}
-            <MiniStat label="Loans" value={activeLoans} accent={overdueLoans ? colors.danger : colors.primaryDark} />
-            {data.savings_balance !== undefined ? <MiniStat label="Savings" value={formatCurrency(data.savings_balance)} /> : null}
-            {totalPayments ? <MiniStat label="Payments" value={totalPayments} /> : null}
+            {typeof data.sponsors === "number" ? <MiniStat label="Sponsors" value={data.sponsors} onPress={() => router.push("/(tabs)/sponsors")} /> : null}
+            {typeof data.clients === "number" ? <MiniStat label="Clients" value={data.clients} onPress={() => router.push("/(tabs)/clients")} /> : null}
+            <MiniStat label="Loans" value={activeLoans} accent={overdueLoans ? colors.danger : colors.primaryDark} onPress={() => router.push("/(tabs)/loans")} />
+            {data.savings_balance !== undefined ? <MiniStat label="Savings" value={formatCurrency(data.savings_balance)} onPress={() => router.push("/(tabs)/savings")} /> : null}
+            {totalPayments ? <MiniStat label="Payments" value={totalPayments} onPress={() => router.push("/(tabs)/payments")} /> : null}
             {staff ? (
               <>
-                <MiniStat label="Total children" value={children?.total ?? 0} />
-                <MiniStat label="Sponsored children" value={children?.sponsored ?? 0} accent={colors.success} />
-                <MiniStat label="Non-sponsored" value={children?.non_sponsored ?? 0} accent={colors.warning} />
-                <MiniStat label="Departed children" value={children?.departed ?? 0} accent={colors.danger} />
-                <MiniStat label="All staff" value={staffWorkforce?.total ?? 0} />
-                <MiniStat label="Sponsored staff" value={staffWorkforce?.sponsored ?? 0} accent={colors.success} />
-                <MiniStat label="Non-sponsored staff" value={staffWorkforce?.non_sponsored ?? 0} accent={colors.warning} />
-                <MiniStat label="Departed staff" value={staffWorkforce?.departed ?? 0} accent={colors.danger} />
+                <MiniStat label="Total children" value={children?.total ?? 0} onPress={() => router.push("/(tabs)/children")} />
+                <MiniStat label="Sponsored children" value={children?.sponsored ?? 0} accent={colors.success} onPress={() => router.push("/(tabs)/children?scope=sponsored")} />
+                <MiniStat label="Non-sponsored" value={children?.non_sponsored ?? 0} accent={colors.warning} onPress={() => router.push("/(tabs)/children?scope=non-sponsored")} />
+                <MiniStat label="Departed children" value={children?.departed ?? 0} accent={colors.danger} onPress={() => router.push("/(tabs)/children?scope=departed")} />
+                <MiniStat label="All staff" value={staffWorkforce?.total ?? 0} onPress={() => router.push("/(tabs)/staff")} />
+                <MiniStat label="Sponsored staff" value={staffWorkforce?.sponsored ?? 0} accent={colors.success} onPress={() => router.push("/(tabs)/staff?scope=sponsored")} />
+                <MiniStat label="Non-sponsored staff" value={staffWorkforce?.non_sponsored ?? 0} accent={colors.warning} onPress={() => router.push("/(tabs)/staff?scope=non-sponsored")} />
+                <MiniStat label="Departed staff" value={staffWorkforce?.departed ?? 0} accent={colors.danger} onPress={() => router.push("/(tabs)/staff?scope=departed")} />
               </>
             ) : null}
           </View>
@@ -101,21 +106,24 @@ export function DashboardScreen() {
   );
 }
 
-function MiniStat({ accent = colors.primaryDark, label, value }: { accent?: string; label: string; value: string | number }) {
+function MiniStat({ accent = colors.primaryDark, label, onPress, value }: { accent?: string; label: string; onPress?: () => void; value: string | number }) {
   return (
-    <View style={styles.summaryItem}>
+    <Pressable accessibilityRole={onPress ? "button" : undefined} onPress={onPress} style={({ pressed }) => [styles.summaryItem, pressed && styles.pressed]}>
       <Text style={[styles.statValue, { color: accent }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { backgroundColor: colors.primaryDark, borderRadius: radius.lg, marginBottom: spacing.lg, marginTop: spacing.sm, padding: spacing.xl },
-  heroCopy: { color: "#ccfbf1", fontSize: 15, lineHeight: 22, marginTop: spacing.sm },
-  heroTitle: { color: "white", fontSize: 30, fontWeight: "900", marginTop: spacing.md },
-  statLabel: { color: colors.muted, flexShrink: 1, fontSize: 11, fontWeight: "800", lineHeight: 15, marginTop: spacing.xs, minHeight: 30, textAlign: "center", textTransform: "uppercase" },
-  statValue: { fontSize: 22, fontWeight: "900" },
-  summaryGrid: { columnGap: spacing.md, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: spacing.md },
-  summaryItem: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexBasis: "47.5%", flexGrow: 0, flexShrink: 0, justifyContent: "center", minHeight: 116, paddingHorizontal: spacing.sm, paddingVertical: spacing.lg }
+  hero: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.lg, marginTop: spacing.sm, padding: spacing.lg },
+  heroBadge: { backgroundColor: colors.primarySoft, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  heroBadgeText: { color: colors.primaryDark, fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
+  heroKicker: { color: colors.muted, fontSize: 12, fontWeight: "900", marginBottom: spacing.xs, textTransform: "uppercase" },
+  heroTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
+  statLabel: { color: colors.muted, flexShrink: 1, fontSize: 10, fontWeight: "900", lineHeight: 13, marginTop: spacing.xs, minHeight: 26, textAlign: "center", textTransform: "uppercase" },
+  statValue: { fontSize: 18, fontWeight: "900" },
+  pressed: { opacity: 0.76 },
+  summaryGrid: { columnGap: spacing.sm, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: spacing.sm },
+  summaryItem: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexBasis: "31.5%", flexGrow: 0, flexShrink: 0, justifyContent: "center", minHeight: 86, paddingHorizontal: spacing.xs, paddingVertical: spacing.md }
 });

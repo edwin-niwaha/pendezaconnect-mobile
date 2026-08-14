@@ -2,6 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { clearTokens, getTokens, saveTokens } from "@/utils/storage";
+import type { Paginated } from "@/types";
 
 const ENV_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ?? "";
 const REQUEST_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_API_TIMEOUT_MS ?? 15000);
@@ -76,6 +77,20 @@ api.interceptors.response.use(
 
 export function listOf<T>(data: T[] | { results: T[] }) {
   return Array.isArray(data) ? data : data.results;
+}
+
+export function paginatedOf<T>(data: T[] | Paginated<T>, page = 1, pageSize = 10): Paginated<T> {
+  if (Array.isArray(data)) {
+    const start = Math.max(page - 1, 0) * pageSize;
+    const results = data.slice(start, start + pageSize);
+    return {
+      count: data.length,
+      next: start + pageSize < data.length ? String(page + 1) : null,
+      previous: page > 1 ? String(page - 1) : null,
+      results
+    };
+  }
+  return data;
 }
 
 export function getErrorMessage(error: unknown, fallback = "Something went wrong.") {

@@ -1,8 +1,8 @@
 ﻿import { useCallback } from "react";
-import { listPayments } from "@/api/payments";
-import { useSearchableResource } from "@/features/shared/useSearchableResource";
+import { listPaymentsPage } from "@/api/payments";
+import { usePaginatedResource } from "@/features/shared/usePaginatedResource";
 
 export function usePayments() {
-  const loader = useCallback((search: string) => listPayments(search), []);
-  return useSearchableResource(loader);
+  const loader = useCallback(({ page, search }: { page: number; search: string }) => listPaymentsPage({ page, search }), []);
+  return usePaginatedResource(loader);
 }

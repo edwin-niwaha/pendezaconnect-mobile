@@ -1,32 +1,31 @@
 ﻿import { useCallback, useEffect, useState } from "react";
-import { listApprovalQueue, listLoans } from "@/api/loans";
+import { getErrorMessage } from "@/api/client";
+import { listApprovalQueue, listLoansPage } from "@/api/loans";
+import { usePaginatedResource } from "@/features/shared/usePaginatedResource";
 import type { Loan } from "@/types";
 
 export function useLoans() {
-  const [items, setItems] = useState<Loan[]>([]);
+  const loader = useCallback(({ page, search }: { page: number; search: string }) => listLoansPage({ page, search }), []);
+  const resource = usePaginatedResource(loader);
   const [queue, setQueue] = useState<Loan[]>([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [queueError, setQueueError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const loadQueue = useCallback(async () => {
+    setQueueError("");
     try {
-      const [loans, approvals] = await Promise.all([listLoans(search), listApprovalQueue()]);
-      setItems(loans);
-      setQueue(approvals);
+      setQueue(await listApprovalQueue());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load loans.");
-    } finally {
-      setLoading(false);
+      setQueueError(getErrorMessage(err, "Unable to load approval queue."));
     }
-  }, [search]);
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(load, 250);
-    return () => clearTimeout(timer);
-  }, [load]);
+    void loadQueue();
+  }, [loadQueue]);
 
-  return { error, items, loading, queue, refresh: load, search, setSearch };
+  const refresh = useCallback(async () => {
+    await Promise.all([resource.refresh(), loadQueue()]);
+  }, [loadQueue, resource]);
+
+  return { ...resource, error: resource.error || queueError, queue, refresh };
 }

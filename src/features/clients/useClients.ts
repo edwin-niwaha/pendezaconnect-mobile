@@ -1,8 +1,8 @@
 ﻿import { useCallback } from "react";
-import { listClients } from "@/api/clients";
-import { useSearchableResource } from "@/features/shared/useSearchableResource";
+import { listClientsPage } from "@/api/clients";
+import { usePaginatedResource } from "@/features/shared/usePaginatedResource";
 
 export function useClients() {
-  const loader = useCallback((search: string) => listClients(search), []);
-  return useSearchableResource(loader);
+  const loader = useCallback(({ page, search }: { page: number; search: string }) => listClientsPage({ page, search }), []);
+  return usePaginatedResource(loader);
 }

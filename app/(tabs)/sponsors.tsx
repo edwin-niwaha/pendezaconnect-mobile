@@ -1,3 +1,3 @@
-﻿import { SponsorsScreen } from "@/features/sponsors/SponsorsScreen";
+import { SponsorsOptimizedScreen } from "@/features/sponsors/SponsorsOptimizedScreen";
 
-export default SponsorsScreen;
+export default SponsorsOptimizedScreen;

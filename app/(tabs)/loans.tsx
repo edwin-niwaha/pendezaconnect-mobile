@@ -1,3 +1,3 @@
-﻿import { LoansScreen } from "@/features/loans/LoansScreen";
+import { LoansOptimizedScreen } from "@/features/loans/LoansOptimizedScreen";
 
-export default LoansScreen;
+export default LoansOptimizedScreen;

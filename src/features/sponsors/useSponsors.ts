@@ -1,8 +1,8 @@
 ﻿import { useCallback } from "react";
-import { listSponsors } from "@/api/sponsors";
-import { useSearchableResource } from "@/features/shared/useSearchableResource";
+import { listSponsorsPage } from "@/api/sponsors";
+import { usePaginatedResource } from "@/features/shared/usePaginatedResource";
 
 export function useSponsors() {
-  const loader = useCallback((search: string) => listSponsors(search), []);
-  return useSearchableResource(loader);
+  const loader = useCallback(({ page, search }: { page: number; search: string }) => listSponsorsPage({ page, search }), []);
+  return usePaginatedResource(loader);
 }
