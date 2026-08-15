@@ -20,7 +20,7 @@ export function useSearchableResource<T>(loader: (search: string) => Promise<T[]
   }, [loader, search]);
 
   useEffect(() => {
-    const timer = setTimeout(load, 250);
+    const timer = setTimeout(load, 600);
     return () => clearTimeout(timer);
   }, [load]);
 

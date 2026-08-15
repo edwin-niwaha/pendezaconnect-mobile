@@ -58,11 +58,11 @@ export function usePaginatedResource<T>(loader: Loader<T>) {
   );
 
   useEffect(() => {
-    setItems([]);
-    setNextPage(null);
+    requestId.current += 1;
     const timer = setTimeout(() => {
+      setNextPage(null);
       void loadPage(1, "initial");
-    }, 400);
+    }, 600);
     return () => clearTimeout(timer);
   }, [loadPage]);
 

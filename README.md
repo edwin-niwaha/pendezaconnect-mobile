@@ -92,6 +92,7 @@ Start Expo for web or non-native development:
 
 ```powershell
 npm start
+npx expo start
 npm run web
 ```
 
