@@ -174,6 +174,10 @@ export default function Login() {
 
   async function donate(currency: "UGX" | "USD") {
     setError("");
+    if (currency === "UGX") {
+      router.push("/donate");
+      return;
+    }
     const result = await openDonation(currency);
     setNotice(result.message);
   }
@@ -196,7 +200,7 @@ export default function Login() {
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Donate dollars" onPress={() => donate("USD")} style={({ pressed }) => [styles.secondaryDonate, pressed && styles.pressed]}>
             <Ionicons name="card" color={colors.primaryDark} size={18} />
-            <Text style={styles.secondaryDonateText}>Donate $</Text>
+            <Text style={styles.secondaryDonateText}>Donate USD</Text>
           </Pressable>
         </View>
         {notice ? <Text style={styles.notice}>{notice}</Text> : null}

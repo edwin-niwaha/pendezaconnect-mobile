@@ -4,12 +4,12 @@ import type { Paginated } from "@/types";
 
 type Loader<T> = (params: { page: number; search: string }) => Promise<Paginated<T>>;
 
-export function usePaginatedResource<T>(loader: Loader<T>) {
+export function usePaginatedResource<T>(loader: Loader<T>, enabled = true) {
   const [items, setItems] = useState<T[]>([]);
   const [search, setSearch] = useState("");
   const [count, setCount] = useState(0);
   const [nextPage, setNextPage] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
@@ -59,12 +59,16 @@ export function usePaginatedResource<T>(loader: Loader<T>) {
 
   useEffect(() => {
     requestId.current += 1;
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     const timer = setTimeout(() => {
       setNextPage(null);
       void loadPage(1, "initial");
     }, 600);
     return () => clearTimeout(timer);
-  }, [loadPage]);
+  }, [enabled, loadPage]);
 
   const refresh = useCallback(() => loadPage(1, "refresh"), [loadPage]);
 

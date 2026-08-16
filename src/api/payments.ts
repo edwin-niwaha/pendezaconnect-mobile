@@ -1,7 +1,6 @@
 ﻿import { api, listOf } from "@/api/client";
-import type { Payment } from "@/types";
 import { paginatedOf } from "@/api/client";
-import type { Paginated } from "@/types";
+import type { Paginated, Payment } from "@/types";
 
 export async function listPayments(search = "") {
   const response = await api.get<Payment[] | { results: Payment[] }>("/payments/", {
@@ -15,4 +14,18 @@ export async function listPaymentsPage({ page = 1, search = "" }: { page?: numbe
     params: { ...(search ? { search } : {}), page }
   });
   return paginatedOf(response.data);
+}
+
+export type MobileMoneyStatus = "PENDING" | "SUCCESSFUL" | "FAILED";
+export type MobileMoneyTransaction = { reference_id: string; status: MobileMoneyStatus; amount: number | string; currency: string; phone: string; message?: string; reason?: string; updated_at?: string };
+export type MobileMoneyPaymentPayload = { amount: number; phone: string; name?: string; email?: string };
+
+export async function initiateMobileMoneyPayment(payload: MobileMoneyPaymentPayload) {
+  const response = await api.post<MobileMoneyTransaction>("/payments/mobile-money/initiate/", payload);
+  return response.data;
+}
+
+export async function getMobileMoneyPaymentStatus(referenceId: string) {
+  const response = await api.get<MobileMoneyTransaction>(`/payments/mobile-money/${referenceId}/status/`);
+  return response.data;
 }
