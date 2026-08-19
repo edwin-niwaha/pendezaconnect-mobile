@@ -24,12 +24,11 @@
       }
     },
     "production": {
+      "node": "20.19.4",
       "autoIncrement": true,
+      "environment": "production",
       "android": {
         "buildType": "app-bundle"
-      },
-      "env": {
-        "EXPO_PUBLIC_APP_ENV": "production"
       }
     }
   },
