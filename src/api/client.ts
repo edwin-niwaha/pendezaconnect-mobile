@@ -1,4 +1,4 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import axios, { AxiosError, create, InternalAxiosRequestConfig, isAxiosError } from "axios";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { clearTokens, getTokens, saveTokens } from "@/utils/storage";
@@ -23,7 +23,15 @@ function defaultDevBaseUrl() {
 
 export const API_BASE_URL = ENV_API_BASE_URL || defaultDevBaseUrl();
 
-export const api = axios.create({ baseURL: API_BASE_URL, timeout: REQUEST_TIMEOUT_MS });
+export const api = create({ baseURL: API_BASE_URL, timeout: REQUEST_TIMEOUT_MS });
+
+// Public endpoints must not receive a stale or expired bearer token. DRF will
+// reject an invalid Authorization header before it evaluates AllowAny.
+export const publicApi = create({
+  baseURL: API_BASE_URL,
+  headers: { Accept: "application/json", "Content-Type": "application/json" },
+  timeout: REQUEST_TIMEOUT_MS
+});
 
 type RetriableRequest = InternalAxiosRequestConfig & { _retry?: boolean };
 
@@ -42,15 +50,39 @@ api.interceptors.request.use(async (config) => {
 });
 
 let refreshPromise: Promise<string | null> | null = null;
+const sessionInvalidationListeners = new Set<() => void>();
+
+export function subscribeToSessionInvalidation(listener: () => void) {
+  sessionInvalidationListeners.add(listener);
+  return () => {
+    sessionInvalidationListeners.delete(listener);
+  };
+}
+
+async function invalidateSession() {
+  await clearTokens();
+  sessionInvalidationListeners.forEach((listener) => listener());
+}
 
 async function refreshAccessToken() {
-  const tokens = await getTokens();
-  if (!tokens?.refresh) return null;
-  const response = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, { refresh: tokens.refresh }, { timeout: REQUEST_TIMEOUT_MS });
-  const access = response.data?.access;
-  if (!access) return null;
-  await saveTokens({ access, refresh: tokens.refresh });
-  return access;
+  try {
+    const tokens = await getTokens();
+    if (!tokens?.refresh) {
+      await invalidateSession();
+      return null;
+    }
+    const response = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, { refresh: tokens.refresh }, { timeout: REQUEST_TIMEOUT_MS });
+    const access = response.data?.access;
+    if (!access) {
+      await invalidateSession();
+      return null;
+    }
+    await saveTokens({ access, refresh: tokens.refresh });
+    return access;
+  } catch (error) {
+    await invalidateSession();
+    throw error;
+  }
 }
 
 api.interceptors.response.use(
@@ -62,10 +94,7 @@ api.interceptors.response.use(
     try {
       refreshPromise = refreshPromise ?? refreshAccessToken();
       const access = await refreshPromise;
-      if (!access) {
-        await clearTokens();
-        return Promise.reject(error);
-      }
+      if (!access) return Promise.reject(error);
       original.headers = original.headers ?? {};
       original.headers.Authorization = `Bearer ${access}`;
       return api(original);
@@ -104,7 +133,7 @@ export function getErrorMessage(error: unknown, fallback = "Something went wrong
     return String(value);
   };
 
-  if (axios.isAxiosError(error)) {
+  if (isAxiosError(error)) {
     if (!error.response) {
       return "Could not reach the server. Check your connection and try again.";
     }

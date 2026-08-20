@@ -1,9 +1,10 @@
-﻿import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs, router } from "expo-router";
 import { Pressable } from "react-native";
 import { LoadingState } from "@/components/Screen";
 import { colors, spacing } from "@/constants/theme";
 import { useAuth } from "@/providers/AuthProvider";
+import { isGuestAccount } from "@/utils/roles";
 
 const icons = {
   index: "grid-outline",
@@ -16,6 +17,7 @@ const icons = {
   loans: "cash-outline",
   savings: "wallet-outline",
   payments: "receipt-outline",
+  support: "help-circle-outline",
   account: "person-circle-outline"
 } as const;
 
@@ -36,7 +38,7 @@ function HeaderBackButton() {
 }
 
 export default function TabsLayout() {
-  const { ready, isAuthenticated } = useAuth();
+  const { ready, isAuthenticated, user } = useAuth();
   if (!ready) return <LoadingState />;
   if (!isAuthenticated) return <Redirect href="/auth/login" />;
 
@@ -51,7 +53,7 @@ export default function TabsLayout() {
       tabBarIcon: ({ color, size }) => <Ionicons name={icons[route.name as keyof typeof icons] ?? "ellipse-outline"} color={color} size={size} />
     })}>
       <Tabs.Screen name="index" options={{ title: "Home" }} />
-      <Tabs.Screen name="services" options={{ title: "Services" }} />
+      <Tabs.Screen name="services" options={{ title: "Services", href: isGuestAccount(user) ? null : undefined }} />
       <Tabs.Screen name="sponsors" options={{ title: "Sponsorship", href: null }} />
       <Tabs.Screen name="sponsors/[id]" options={{ title: "Sponsor Details", href: null }} />
       <Tabs.Screen name="clients" options={{ title: "Clients", href: null }} />
@@ -65,6 +67,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="loans/[id]" options={{ title: "Loan Details", href: null }} />
       <Tabs.Screen name="savings" options={{ title: "Savings", href: null }} />
       <Tabs.Screen name="payments" options={{ title: "Payments", href: null }} />
+      <Tabs.Screen name="support" options={{ title: "Contact us", href: null }} />
       <Tabs.Screen name="account" options={{ title: "Account" }} />
     </Tabs>
   );

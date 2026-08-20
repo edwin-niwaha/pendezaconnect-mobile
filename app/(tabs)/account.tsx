@@ -9,6 +9,7 @@ import { Screen } from "@/components/Screen";
 import { StatusBadge } from "@/components/Polished";
 import { colors, radius, spacing } from "@/constants/theme";
 import { useAuth } from "@/providers/AuthProvider";
+import { enablePushNotifications } from "@/features/notifications/notifications";
 
 type PasswordField = "confirmPassword" | "currentPassword" | "newPassword";
 type ProfileForm = {
@@ -52,7 +53,10 @@ export default function Account() {
   const [resetError, setResetError] = useState("");
   const [resetMessage, setResetMessage] = useState("");
   const [resetSending, setResetSending] = useState(false);
-  const [expandedSection, setExpandedSection] = useState<"profile" | "security" | "session">("profile");
+  const [expandedSection, setExpandedSection] = useState<"notifications" | "profile" | "security" | "session" | null>("profile");
+  const [notificationError, setNotificationError] = useState("");
+  const [notificationMessage, setNotificationMessage] = useState("");
+  const [notificationSaving, setNotificationSaving] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState<Record<PasswordField, boolean>>({
     confirmPassword: false,
     currentPassword: false,
@@ -83,6 +87,10 @@ export default function Account() {
 
   function togglePassword(field: PasswordField) {
     setVisiblePasswords((current) => ({ ...current, [field]: !current[field] }));
+  }
+
+  function toggleSection(section: Exclude<typeof expandedSection, null>) {
+    setExpandedSection((current) => current === section ? null : section);
   }
 
   function validateProfile() {
@@ -203,6 +211,20 @@ export default function Account() {
     router.replace("/auth/login");
   }
 
+  async function turnOnNotifications() {
+    setNotificationError("");
+    setNotificationMessage("");
+    setNotificationSaving(true);
+    try {
+      await enablePushNotifications();
+      setNotificationMessage("Notifications are enabled for this device.");
+    } catch (err) {
+      setNotificationError(getErrorMessage(err, "Could not enable notifications."));
+    } finally {
+      setNotificationSaving(false);
+    }
+  }
+
   function confirmSignOut() {
     Alert.alert("Sign out", "Are you sure you want to sign out of this device?", [
       { style: "cancel", text: "Cancel" },
@@ -212,10 +234,16 @@ export default function Account() {
 
   return (
     <Screen>
+      <View style={styles.pageHeading}>
+        <Text style={styles.pageEyebrow}>Settings</Text>
+        <Text style={styles.pageTitle}>Your account</Text>
+        <Text style={styles.pageSubtitle}>Manage your personal details, security, notifications, and signed-in device.</Text>
+      </View>
+
       <View style={styles.hero}>
         <View style={styles.avatarWrap}>
           {displayedAvatarUri ? <Image source={{ uri: displayedAvatarUri }} style={styles.avatar} /> : <Text style={styles.avatarText}>{initials(user?.first_name, user?.last_name, user?.username)}</Text>}
-          <Pressable disabled={avatarSaving} onPress={pickAvatar} style={styles.avatarButton}>
+          <Pressable accessibilityLabel="Change profile photo" accessibilityRole="button" disabled={avatarSaving} onPress={pickAvatar} style={styles.avatarButton}>
             {avatarSaving ? <ActivityIndicator color="white" size="small" /> : <Ionicons name="camera" color="white" size={16} />}
           </Pressable>
         </View>
@@ -229,46 +257,64 @@ export default function Account() {
         </View>
       </View>
 
-      <AccountSection active={expandedSection === "profile"} icon="person-outline" onPress={() => setExpandedSection("profile")} subtitle="Name, email, photo, and bio" title="Profile">
+      <Text style={styles.groupLabel}>Account settings</Text>
+      <AccountSection active={expandedSection === "profile"} icon="person-outline" onPress={() => toggleSection("profile")} subtitle="Name, email, photo, and bio" title="Profile">
         <View style={styles.card}>
-        <LabeledInput label="Username" onChangeText={(value) => updateProfileField("username", value)} value={profile.username} autoCapitalize="none" />
-        <Text style={styles.fieldHint}>Use 3-100 letters, numbers, dots, dashes, or underscores.</Text>
-        <View style={styles.twoColumn}>
-          <LabeledInput label="First name" onChangeText={(value) => updateProfileField("firstName", value)} value={profile.firstName} wrapperStyle={styles.columnInput} />
-          <LabeledInput label="Last name" onChangeText={(value) => updateProfileField("lastName", value)} value={profile.lastName} wrapperStyle={styles.columnInput} />
-        </View>
-        <LabeledInput label="Email" onChangeText={(value) => updateProfileField("email", value)} value={profile.email} autoCapitalize="none" keyboardType="email-address" />
-        <LabeledInput label="Bio" onChangeText={(value) => updateProfileField("bio", value)} value={profile.bio} maxLength={500} multiline />
-        <Text style={styles.fieldHint}>{profile.bio.trim().length}/500 characters</Text>
-        <Feedback error={profileError} message={profileMessage} />
-        <PrimaryButton icon="save-outline" loading={profileSaving} onPress={saveProfile} text="Save profile" />
-        </View>
-      </AccountSection>
-
-      <AccountSection active={expandedSection === "security"} icon="shield-checkmark-outline" onPress={() => setExpandedSection("security")} subtitle="Password and recovery" title="Account & Security">
-        <View style={styles.card}>
-        <PasswordInput label="Current password" onToggle={() => togglePassword("currentPassword")} onChangeText={setCurrentPassword} secure={!visiblePasswords.currentPassword} value={currentPassword} />
-        <PasswordInput label="New password" onToggle={() => togglePassword("newPassword")} onChangeText={setNewPassword} secure={!visiblePasswords.newPassword} value={newPassword} />
-        <PasswordInput label="Confirm new password" onToggle={() => togglePassword("confirmPassword")} onChangeText={setConfirmPassword} secure={!visiblePasswords.confirmPassword} value={confirmPassword} />
-        <Feedback error={passwordError} message={passwordMessage} />
-        <PrimaryButton icon="lock-closed-outline" loading={passwordSaving} onPress={savePassword} text="Change password" />
-
-        <View style={styles.divider} />
-        <Text style={styles.subTitle}>Forgot password</Text>
-        <Text style={styles.helpText}>Send reset instructions to your account email if you cannot sign in later.</Text>
-        <LabeledInput label="Reset email" onChangeText={setResetEmail} value={resetEmail} autoCapitalize="none" keyboardType="email-address" />
-        <Feedback error={resetError} message={resetMessage} />
-        <SecondaryButton icon="mail-outline" loading={resetSending} onPress={sendResetLink} text="Send reset instructions" />
+          <LabeledInput label="Username" onChangeText={(value) => updateProfileField("username", value)} placeholder="Your username" value={profile.username} autoCapitalize="none" />
+          <Text style={styles.fieldHint}>3–100 letters, numbers, dots, dashes, or underscores.</Text>
+          <LabeledInput label="First name" onChangeText={(value) => updateProfileField("firstName", value)} placeholder="First name" value={profile.firstName} />
+          <LabeledInput label="Last name" onChangeText={(value) => updateProfileField("lastName", value)} placeholder="Last name" value={profile.lastName} />
+          <LabeledInput label="Email address" onChangeText={(value) => updateProfileField("email", value)} placeholder="name@example.com" value={profile.email} autoCapitalize="none" keyboardType="email-address" />
+          <LabeledInput label="About you" onChangeText={(value) => updateProfileField("bio", value)} placeholder="A short introduction (optional)" value={profile.bio} maxLength={500} multiline />
+          <Text style={styles.fieldHint}>{profile.bio.trim().length}/500 characters</Text>
+          <Feedback error={profileError} message={profileMessage} />
+          <PrimaryButton icon="save-outline" loading={profileSaving} onPress={saveProfile} text="Save changes" />
         </View>
       </AccountSection>
 
-      <AccountSection active={expandedSection === "session"} icon="phone-portrait-outline" onPress={() => setExpandedSection("session")} subtitle="Current device access" title="Session">
+      <AccountSection active={expandedSection === "security"} icon="shield-checkmark-outline" onPress={() => toggleSection("security")} subtitle="Password and recovery options" title="Account & security">
         <View style={styles.card}>
-        <Text style={styles.helpText}>Signed in as {profile.username || "this user"}. Signing out only affects this device.</Text>
-        <Pressable onPress={confirmSignOut} style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
-          <Ionicons name="log-out-outline" color={colors.danger} size={18} />
-          <Text style={styles.signOutText}>Sign out</Text>
-        </Pressable>
+          <View style={styles.sectionIntro}><Ionicons name="lock-closed-outline" color={colors.primaryDark} size={20} /><Text style={styles.sectionIntroText}>Use at least 8 characters with a letter and a number.</Text></View>
+          <PasswordInput label="Current password" onToggle={() => togglePassword("currentPassword")} onChangeText={setCurrentPassword} placeholder="Enter current password" secure={!visiblePasswords.currentPassword} value={currentPassword} />
+          <PasswordInput label="New password" onToggle={() => togglePassword("newPassword")} onChangeText={setNewPassword} placeholder="Create a new password" secure={!visiblePasswords.newPassword} value={newPassword} />
+          <PasswordInput label="Confirm new password" onToggle={() => togglePassword("confirmPassword")} onChangeText={setConfirmPassword} placeholder="Repeat new password" secure={!visiblePasswords.confirmPassword} value={confirmPassword} />
+          <Feedback error={passwordError} message={passwordMessage} />
+          <PrimaryButton icon="lock-closed-outline" loading={passwordSaving} onPress={savePassword} text="Change password" />
+
+          <View style={styles.divider} />
+          <Text style={styles.subTitle}>Password recovery</Text>
+          <Text style={styles.helpText}>Send reset instructions to your account email if you cannot sign in later.</Text>
+          <LabeledInput label="Recovery email" onChangeText={setResetEmail} placeholder="name@example.com" value={resetEmail} autoCapitalize="none" keyboardType="email-address" />
+          <Feedback error={resetError} message={resetMessage} />
+          <SecondaryButton icon="mail-outline" loading={resetSending} onPress={sendResetLink} text="Send reset instructions" />
+        </View>
+      </AccountSection>
+
+      <AccountSection active={expandedSection === "notifications"} icon="notifications-outline" onPress={() => toggleSection("notifications")} subtitle="Private alerts on this device" title="Notifications">
+        <View style={styles.card}>
+          <Text style={styles.subTitle}>Stay informed</Text>
+          <Text style={styles.helpText}>Receive useful updates without exposing sensitive account information.</Text>
+          <SettingDetail icon="cash-outline" text="Loan and repayment updates" />
+          <SettingDetail icon="wallet-outline" text="Savings and payment activity" />
+          <SettingDetail icon="shield-checkmark-outline" text="Important account-security changes" />
+          <View style={styles.privacyNote}><Ionicons name="eye-off-outline" color={colors.muted} size={18} /><Text style={styles.privacyText}>Sensitive details stay hidden from notification previews.</Text></View>
+          <Feedback error={notificationError} message={notificationMessage} />
+          <PrimaryButton icon="notifications-outline" loading={notificationSaving} onPress={turnOnNotifications} text="Enable notifications" />
+        </View>
+      </AccountSection>
+
+      <AccountSection active={expandedSection === "session"} icon="phone-portrait-outline" onPress={() => toggleSection("session")} subtitle="Current device and sign out" title="Session">
+        <View style={styles.card}>
+          <View style={styles.deviceRow}>
+            <View style={styles.deviceIcon}><Ionicons name="phone-portrait-outline" color={colors.primaryDark} size={22} /></View>
+            <View style={styles.deviceCopy}><Text style={styles.deviceTitle}>This device</Text><Text style={styles.deviceText}>Signed in as {profile.username || "this user"}</Text></View>
+            <View style={styles.activeDot} />
+          </View>
+          <Text style={styles.helpText}>Signing out removes your session from this device only. Your account and information remain safe.</Text>
+          <Pressable onPress={confirmSignOut} style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
+            <Ionicons name="log-out-outline" color={colors.danger} size={18} />
+            <Text style={styles.signOutText}>Sign out of this device</Text>
+          </Pressable>
         </View>
       </AccountSection>
     </Screen>
@@ -291,18 +337,18 @@ function AccountSection({
   title: string;
 }) {
   return (
-    <View style={styles.sectionWrap}>
-      <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.sectionButton, pressed && styles.pressed]}>
-        <View style={styles.sectionIcon}>
+    <View style={[styles.sectionWrap, active && styles.sectionWrapActive]}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: active }} onPress={onPress} style={({ pressed }) => [styles.sectionButton, active && styles.sectionButtonActive, pressed && styles.pressed]}>
+        <View style={[styles.sectionIcon, active && styles.sectionIconActive]}>
           <Ionicons name={icon} color={colors.primaryDark} size={20} />
         </View>
         <View style={styles.sectionCopy}>
           <Text style={styles.sectionTitle}>{title}</Text>
           <Text style={styles.sectionSubtitle}>{subtitle}</Text>
         </View>
-        <Ionicons name={active ? "chevron-up" : "chevron-down"} color={colors.muted} size={20} />
+        <View style={styles.chevron}><Ionicons name={active ? "chevron-up" : "chevron-down"} color={active ? colors.primaryDark : colors.muted} size={18} /></View>
       </Pressable>
-      {active ? children : null}
+      {active ? <View style={styles.sectionContent}>{children}</View> : null}
     </View>
   );
 }
@@ -335,9 +381,13 @@ function PasswordInput({ label, onToggle, secure, ...props }: React.ComponentPro
 }
 
 function Feedback({ error, message }: { error: string; message: string }) {
-  if (error) return <Text style={styles.error}>{error}</Text>;
-  if (message) return <Text style={styles.success}>{message}</Text>;
+  if (error) return <View accessibilityLiveRegion="polite" style={[styles.feedback, styles.error]}><Ionicons name="alert-circle-outline" color={colors.danger} size={19} /><Text style={[styles.feedbackText, styles.errorText]}>{error}</Text></View>;
+  if (message) return <View accessibilityLiveRegion="polite" style={[styles.feedback, styles.success]}><Ionicons name="checkmark-circle-outline" color={colors.success} size={19} /><Text style={[styles.feedbackText, styles.successText]}>{message}</Text></View>;
   return null;
+}
+
+function SettingDetail({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }) {
+  return <View style={styles.settingDetail}><View style={styles.settingDetailIcon}><Ionicons name={icon} color={colors.primaryDark} size={18} /></View><Text style={styles.settingDetailText}>{text}</Text><Ionicons name="checkmark" color={colors.success} size={18} /></View>;
 }
 
 function PrimaryButton({ icon, loading, onPress, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; loading: boolean; onPress: () => void; text: string }) {
@@ -359,43 +409,68 @@ function SecondaryButton({ icon, loading, onPress, text }: { icon: React.Compone
 }
 
 const styles = StyleSheet.create({
-  avatar: { borderRadius: 44, height: 88, width: 88 },
+  activeDot: { backgroundColor: colors.success, borderColor: "#dcfce7", borderRadius: 999, borderWidth: 4, height: 16, width: 16 },
+  avatar: { borderRadius: 40, height: 80, width: 80 },
   avatarButton: { alignItems: "center", backgroundColor: colors.primary, borderColor: "white", borderRadius: 18, borderWidth: 2, bottom: -2, height: 36, justifyContent: "center", position: "absolute", right: -2, width: 36 },
-  avatarText: { color: colors.primaryDark, fontSize: 24, fontWeight: "900" },
-  avatarWrap: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 44, height: 88, justifyContent: "center", width: 88 },
+  avatarText: { color: colors.primaryDark, fontSize: 23, fontWeight: "900" },
+  avatarWrap: { alignItems: "center", backgroundColor: colors.primarySoft, borderColor: "white", borderRadius: 42, borderWidth: 3, height: 84, justifyContent: "center", width: 84 },
   badges: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
-  card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.lg, padding: spacing.lg },
-  columnInput: { flex: 1 },
-  disabled: { opacity: 0.68 },
-  divider: { backgroundColor: colors.border, height: 1, marginVertical: spacing.lg },
-  error: { backgroundColor: "#fef2f2", borderColor: "#fecaca", borderRadius: radius.md, borderWidth: 1, color: colors.danger, fontWeight: "700", marginBottom: spacing.md, padding: spacing.md },
-  fieldHint: { color: colors.muted, fontSize: 12, lineHeight: 18, marginBottom: spacing.md, marginTop: -spacing.sm },
+  card: { padding: spacing.lg },
+  chevron: { alignItems: "center", backgroundColor: "#f8fafc", borderRadius: 999, height: 32, justifyContent: "center", width: 32 },
+  deviceCopy: { flex: 1 },
+  deviceIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: radius.md, height: 44, justifyContent: "center", width: 44 },
+  deviceRow: { alignItems: "center", backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.md, marginBottom: spacing.md, padding: spacing.md },
+  deviceText: { color: colors.muted, fontSize: 13, marginTop: spacing.xs },
+  deviceTitle: { color: colors.text, fontWeight: "900" },
+  disabled: { opacity: 0.62 },
+  divider: { backgroundColor: colors.border, height: 1, marginVertical: spacing.xl },
+  error: { backgroundColor: "#fef2f2", borderColor: "#fecaca" },
+  errorText: { color: colors.danger },
+  feedback: { alignItems: "flex-start", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md, padding: spacing.md },
+  feedbackText: { flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 19 },
+  fieldHint: { color: colors.muted, fontSize: 12, lineHeight: 18, marginBottom: spacing.md, marginTop: -spacing.sm, textAlign: "right" },
+  groupLabel: { color: colors.muted, fontSize: 11, fontWeight: "900", letterSpacing: 0.7, marginBottom: spacing.sm, marginLeft: spacing.xs, textTransform: "uppercase" },
   helpText: { color: colors.muted, lineHeight: 20, marginBottom: spacing.md },
-  hero: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.md, marginBottom: spacing.lg, padding: spacing.lg },
-  heroCopy: { flex: 1 },
-  iconButton: { alignItems: "center", height: 46, justifyContent: "center", width: 46 },
-  input: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, padding: spacing.md },
+  hero: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, flexDirection: "row", gap: spacing.lg, marginBottom: spacing.xl, padding: spacing.lg, shadowColor: "#0f172a", shadowOpacity: 0.06, shadowRadius: 14 },
+  heroCopy: { flex: 1, minWidth: 0 },
+  iconButton: { alignItems: "center", height: 50, justifyContent: "center", width: 50 },
+  input: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, fontSize: 16, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   inputGroup: { marginBottom: spacing.md },
-  label: { color: colors.text, fontSize: 12, fontWeight: "900", marginBottom: spacing.xs, textTransform: "uppercase" },
+  label: { color: colors.text, fontSize: 13, fontWeight: "800", marginBottom: spacing.xs },
   muted: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
-  name: { color: colors.text, fontSize: 22, fontWeight: "900" },
-  passwordInput: { color: colors.text, flex: 1, padding: spacing.md },
+  name: { color: colors.text, fontSize: 21, fontWeight: "900" },
+  pageEyebrow: { color: colors.primaryDark, fontSize: 11, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
+  pageHeading: { marginBottom: spacing.lg, marginTop: spacing.sm },
+  pageSubtitle: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
+  pageTitle: { color: colors.text, fontSize: 27, fontWeight: "900", marginTop: spacing.xs },
+  passwordInput: { color: colors.text, flex: 1, fontSize: 16, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   passwordRow: { alignItems: "center", backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: "row" },
-  pressed: { opacity: 0.78 },
-  primaryButton: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, justifyContent: "center", padding: spacing.md },
-  primaryButtonText: { color: "white", fontWeight: "900" },
-  secondaryButton: { alignItems: "center", backgroundColor: colors.primarySoft, borderColor: "#99f6e4", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, justifyContent: "center", padding: spacing.md },
-  secondaryButtonText: { color: colors.primaryDark, fontWeight: "900" },
-  sectionButton: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.md, marginBottom: spacing.md, padding: spacing.lg },
-  sectionCopy: { flex: 1 },
-  sectionIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 16, height: 40, justifyContent: "center", width: 40 },
-  sectionSubtitle: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
-  sectionTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
-  sectionWrap: { marginBottom: spacing.md },
-  signOutButton: { alignItems: "center", alignSelf: "flex-start", borderColor: "#fecaca", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  pressed: { opacity: 0.74 },
+  primaryButton: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, justifyContent: "center", minHeight: 50, paddingHorizontal: spacing.lg },
+  primaryButtonText: { color: "white", fontSize: 15, fontWeight: "900" },
+  privacyNote: { alignItems: "flex-start", backgroundColor: "#f8fafc", borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md, marginTop: spacing.sm, padding: spacing.md },
+  privacyText: { color: colors.muted, flex: 1, fontSize: 12, lineHeight: 18 },
+  secondaryButton: { alignItems: "center", backgroundColor: colors.primarySoft, borderColor: "#99f6e4", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, justifyContent: "center", minHeight: 50, paddingHorizontal: spacing.lg },
+  secondaryButtonText: { color: colors.primaryDark, fontSize: 14, fontWeight: "900" },
+  sectionButton: { alignItems: "center", backgroundColor: colors.surface, borderRadius: radius.lg, flexDirection: "row", gap: spacing.md, minHeight: 76, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+  sectionButtonActive: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+  sectionContent: { borderTopColor: colors.border, borderTopWidth: 1 },
+  sectionCopy: { flex: 1, minWidth: 0 },
+  sectionIcon: { alignItems: "center", backgroundColor: "#f1f5f9", borderRadius: 16, height: 44, justifyContent: "center", width: 44 },
+  sectionIconActive: { backgroundColor: colors.primarySoft },
+  sectionIntro: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg, padding: spacing.md },
+  sectionIntroText: { color: colors.primaryDark, flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 19 },
+  sectionSubtitle: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: spacing.xs },
+  sectionTitle: { color: colors.text, fontSize: 16, fontWeight: "900" },
+  sectionWrap: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.md, overflow: "hidden" },
+  sectionWrapActive: { borderColor: "#99f6e4", shadowColor: "#0f172a", shadowOpacity: 0.04, shadowRadius: 10 },
+  settingDetail: { alignItems: "center", borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: "row", gap: spacing.sm, minHeight: 52, paddingVertical: spacing.sm },
+  settingDetailIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 12, height: 34, justifyContent: "center", width: 34 },
+  settingDetailText: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "700" },
+  signOutButton: { alignItems: "center", alignSelf: "stretch", backgroundColor: "#fef2f2", borderColor: "#fecaca", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, justifyContent: "center", minHeight: 50, paddingHorizontal: spacing.lg },
   signOutText: { color: colors.danger, fontWeight: "900" },
   subTitle: { color: colors.text, fontSize: 17, fontWeight: "900", marginBottom: spacing.xs },
-  success: { backgroundColor: "#dcfce7", borderColor: "#bbf7d0", borderRadius: radius.md, borderWidth: 1, color: colors.success, fontWeight: "700", marginBottom: spacing.md, padding: spacing.md },
-  textArea: { minHeight: 88, textAlignVertical: "top" },
-  twoColumn: { flexDirection: "row", gap: spacing.md }
+  success: { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" },
+  successText: { color: colors.success },
+  textArea: { minHeight: 104, paddingTop: spacing.md, textAlignVertical: "top" }
 });

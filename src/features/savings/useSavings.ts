@@ -27,7 +27,7 @@ export function useSavings() {
     } finally {
       setLoading(false);
     }
-  }, [user?.account_type, user?.client_id]);
+  }, [user]);
 
   useEffect(() => {
     load();

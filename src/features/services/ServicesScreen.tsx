@@ -1,12 +1,13 @@
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { FeatureCard, SectionHeader } from "@/components/Polished";
 import { Screen } from "@/components/Screen";
 import { colors } from "@/constants/theme";
 import { useAuth } from "@/providers/AuthProvider";
-import { isClientAccount, isSponsorAccount, isStaffAccount } from "@/utils/roles";
+import { isClientAccount, isGuestAccount, isSponsorAccount, isStaffAccount } from "@/utils/roles";
 
 export function ServicesScreen() {
   const { user } = useAuth();
+  if (isGuestAccount(user)) return <Redirect href="/(tabs)" />;
   const staff = isStaffAccount(user);
   const canUseSponsorship = staff || isSponsorAccount(user);
   const canUseLoans = staff || isClientAccount(user);
@@ -18,6 +19,7 @@ export function ServicesScreen() {
       {canUseSponsorship ? (
         <FeatureCard accent="#db2777" icon="heart" onPress={() => router.push("/(tabs)/sponsors")} subtitle="Sponsors, child support, and giving history." title="Sponsorship" />
       ) : null}
+      <FeatureCard accent="#0f766e" icon="help-circle" onPress={() => router.push("/(tabs)/support")} subtitle="Contact the team or send feedback." title="Contact us" />
       {canUseLoans ? (
         <FeatureCard accent={colors.accent} icon="cash" onPress={() => router.push("/(tabs)/loans")} subtitle="Loan statuses, balances, due dates, and repayment visibility." title="Loans" />
       ) : null}

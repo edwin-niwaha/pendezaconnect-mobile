@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/Screen";
 import { SearchBox } from "@/components/SearchBox";
 import { colors, radius, spacing } from "@/constants/theme";
 import { PaginatedListFooter, ResourceEmpty, ResourceError } from "@/features/shared/ResourceStates";
+import { notifyRunningLoanBalance } from "@/features/notifications/notifications";
 import { useAuth } from "@/providers/AuthProvider";
 import type { Loan, LoanApplicationPayload } from "@/types";
 import { isClientAccount, isStaffAccount } from "@/utils/roles";
@@ -52,6 +53,7 @@ export function LoansOptimizedScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [formMessage, setFormMessage] = useState("");
+  const [applyToast, setApplyToast] = useState("");
   const [form, setForm] = useState<LoanApplicationPayload>({
     principal_amount: "",
     loan_purpose: "business",
@@ -62,28 +64,56 @@ export function LoansOptimizedScreen() {
     bank_statement: null
   });
 
-  if (loading && !items.length) return <LoadingState />;
-
   const client = isClientAccount(user);
   const staff = isStaffAccount(user);
   const activeLoans = items.filter((item) => ["approved", "disbursed", "overdue"].includes(item.status)).length;
   const overdueLoans = items.filter((item) => item.status.toLowerCase().includes("overdue")).length;
   const outstanding = items.reduce((sum, item) => sum + Number(item.total_outstanding ?? 0), 0);
+  const runningLoans = items.filter((item) => Number(item.total_outstanding ?? 0) > 0 && ["approved", "disbursed", "active", "overdue"].some((status) => item.status.toLowerCase().includes(status)));
+  const primaryRunningLoanId = runningLoans[0]?.id;
+  const runningLoanIds = runningLoans.map((loan) => loan.id).sort((a, b) => a - b).join("-");
+  const hasBlockingLoan = items.some((item) => !["closed", "repaid", "rejected", "cancelled", "canceled"].some((status) => item.status.toLowerCase().includes(status)));
   const nextDue = items.filter((item) => item.due_date).sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)))[0];
+
+  useEffect(() => {
+    if (!client || loading || !primaryRunningLoanId || outstanding <= 0 || !user) return;
+    const day = new Date().toISOString().slice(0, 10);
+    void notifyRunningLoanBalance({
+      amount: formatCurrency(outstanding),
+      loanId: primaryRunningLoanId,
+      noticeKey: `${user.id}:${day}:${runningLoanIds}`
+    }).catch(() => undefined);
+  }, [client, loading, outstanding, primaryRunningLoanId, runningLoanIds, user]);
+
+  useEffect(() => {
+    if (!applyToast) return;
+    const timer = setTimeout(() => setApplyToast(""), 5000);
+    return () => clearTimeout(timer);
+  }, [applyToast]);
+
+  if (loading && !items.length) return <LoadingState />;
 
   function setField<K extends keyof LoanApplicationPayload>(key: K, value: LoanApplicationPayload[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function pickDocument(field: "national_id" | "bank_statement") {
-    setFormError("");
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setFormError("Photo library permission is required to attach documents.");
+  function toggleApplication() {
+    if (!showApply && hasBlockingLoan) {
+      setApplyToast("You already have a pending application or running loan. New loan applications are available after the current one is completed.");
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: false, mediaTypes: ["images"], quality: 0.88 });
-    if (!result.canceled) setField(field, result.assets[0]);
+    setApplyToast("");
+    setShowApply((value) => !value);
+  }
+
+  async function pickDocument(field: "national_id" | "bank_statement") {
+    setFormError("");
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: false, mediaTypes: ["images"], quality: 0.88 });
+      if (!result.canceled) setField(field, result.assets[0]);
+    } catch (err) {
+      setFormError(getErrorMessage(err, "Could not open your photos. Check the app settings and try again."));
+    }
   }
 
   async function submitApplication() {
@@ -127,6 +157,11 @@ export function LoansOptimizedScreen() {
           ))}
         </View>
         <View style={styles.documentRow}>
+          <View style={styles.documentChecklistHeader}>
+            <Text style={styles.documentChecklistTitle}>Documents to attach</Text>
+            <Text style={styles.documentCount}>2 required</Text>
+          </View>
+          <Text style={styles.documentHelp}>Attach a clear National ID and a recent bank statement.</Text>
           <Pressable onPress={() => pickDocument("national_id")} style={styles.documentButton}>
             <Ionicons name="id-card-outline" color={colors.primaryDark} size={18} />
             <Text numberOfLines={1} style={styles.documentText}>National ID: {fileLabel(form.national_id)}</Text>
@@ -154,20 +189,35 @@ export function LoansOptimizedScreen() {
         <Text style={styles.screenTitle}>Loans</Text>
         <FeatureCard
           accent={overdueLoans ? colors.danger : colors.accent}
-          icon="cash"
           subtitle={nextDue ? `Next visible due date: ${formatDate(nextDue.due_date)}` : "Apply, track documents, and review loan workflow status."}
           title="Outstanding"
           value={formatCurrency(outstanding)}
           meta={joinMeta([`${activeLoans} active`, staff && queue.length ? `${queue.length} awaiting review` : null, count ? `${count} total` : null])}
         />
         {client ? (
-          <Pressable onPress={() => setShowApply((value) => !value)} style={styles.applyButton}>
+          <Pressable onPress={toggleApplication} style={styles.applyButton}>
             <Ionicons name="add-circle-outline" color="white" size={20} />
             <Text style={styles.applyButtonText}>Apply for loan</Text>
           </Pressable>
         ) : null}
         <ResourceError message={error || formError} />
         {formMessage ? <Text style={styles.success}>{formMessage}</Text> : null}
+        {applyToast ? (
+          <View accessibilityLiveRegion="polite" style={styles.toast}>
+            <Ionicons name="information-circle" color="white" size={21} />
+            <Text style={styles.toastText}>{applyToast}</Text>
+          </View>
+        ) : null}
+        {client && runningLoans.length ? (
+          <Pressable onPress={() => router.push(`/(tabs)/loans/${runningLoans[0].id}`)} style={styles.balanceNotice}>
+            <Ionicons name="notifications-outline" color={colors.warning} size={21} />
+            <View style={styles.balanceNoticeCopy}>
+              <Text style={styles.balanceNoticeTitle}>Running loan balance</Text>
+              <Text style={styles.muted}>You have {formatCurrency(outstanding)} outstanding. Tap to review repayment details.</Text>
+            </View>
+            <Ionicons name="chevron-forward" color={colors.muted} size={18} />
+          </Pressable>
+        ) : null}
         {renderApplicationForm()}
         <SearchBox value={search} onChangeText={setSearch} placeholder="Search loans" />
         {staff && queue.length ? (
@@ -201,7 +251,7 @@ export function LoansOptimizedScreen() {
       data={items}
       keyExtractor={(item) => String(item.id)}
       renderItem={renderLoan}
-      ListHeaderComponent={renderHeader}
+      ListHeaderComponent={renderHeader()}
       ListEmptyComponent={!loading && !error ? <ResourceEmpty text={search ? "No loans match your search." : "No loans available for your account."} /> : null}
       ListFooterComponent={<PaginatedListFooter endText="All matching loans are loaded." error={loadMoreError} loading={loadingMore} loadingText="Loading more loans..." onRetry={loadMore} showEnd={items.length > 0 && !hasMore} />}
       contentContainerStyle={styles.content}
@@ -217,9 +267,16 @@ export function LoansOptimizedScreen() {
 const styles = StyleSheet.create({
   applyButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, justifyContent: "center", marginBottom: spacing.md, minHeight: 46, paddingHorizontal: spacing.lg },
   applyButtonText: { color: "white", fontWeight: "900" },
+  balanceNotice: { alignItems: "center", backgroundColor: "#fffbeb", borderColor: "#fde68a", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md, padding: spacing.md },
+  balanceNoticeCopy: { flex: 1 },
+  balanceNoticeTitle: { color: colors.warning, fontWeight: "900" },
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.md, padding: spacing.lg },
   content: { padding: spacing.lg, paddingBottom: 36 },
   documentButton: { alignItems: "center", backgroundColor: "#ecfeff", borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, minHeight: 42, paddingHorizontal: spacing.md },
+  documentChecklistHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  documentChecklistTitle: { color: colors.text, fontWeight: "900" },
+  documentCount: { color: colors.primaryDark, fontSize: 12, fontWeight: "800" },
+  documentHelp: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   documentRow: { gap: spacing.sm, marginTop: spacing.md },
   documentText: { color: colors.primaryDark, flex: 1, fontWeight: "800" },
   formActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
@@ -246,5 +303,7 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
   success: { backgroundColor: "#dcfce7", borderRadius: radius.md, color: colors.success, fontWeight: "800", marginBottom: spacing.md, padding: spacing.md },
   textArea: { minHeight: 78, paddingTop: spacing.md, textAlignVertical: "top" },
-  title: { color: colors.text, flex: 1, fontSize: 17, fontWeight: "900" }
+  title: { color: colors.text, flex: 1, fontSize: 17, fontWeight: "900" },
+  toast: { alignItems: "flex-start", backgroundColor: colors.primaryDark, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md, padding: spacing.md },
+  toastText: { color: "white", flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 19 }
 });

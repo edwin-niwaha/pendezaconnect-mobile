@@ -17,3 +17,7 @@ export function isClientAccount(user?: User | null) {
 export function isSponsorAccount(user?: User | null) {
   return user?.account_type === "sponsor";
 }
+
+export function isGuestAccount(user?: User | null) {
+  return user?.account_type === "guest";
+}

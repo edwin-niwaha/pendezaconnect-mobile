@@ -9,7 +9,9 @@ import { AmountRow, FeatureCard, SectionHeader, StatusBadge } from "@/components
 import { EmptyState, LoadingState, Screen } from "@/components/Screen";
 import { colors, radius, spacing } from "@/constants/theme";
 import { ResourceError } from "@/features/shared/ResourceStates";
-import type { Loan, LoanApplicationPayload } from "@/types";
+import { useAuth } from "@/providers/AuthProvider";
+import type { Loan, LoanApplicationPayload, LoanRepaymentScheduleItem } from "@/types";
+import { isClientAccount } from "@/utils/roles";
 import { formatCurrency, formatDate, formatLabel, joinMeta } from "@/utils/format";
 
 type LoanAsset = NonNullable<LoanApplicationPayload["national_id"]>;
@@ -37,7 +39,23 @@ function fileLabel(asset?: LoanAsset | null) {
   return asset?.fileName || (asset ? "Selected image" : "Choose image");
 }
 
+const approvalSteps = [
+  { key: "submitted", label: "Submitted" },
+  { key: "approved", label: "Approved" },
+  { key: "disbursed", label: "Disbursed" },
+  { key: "repaid", label: "Repaid" }
+] as const;
+
+function approvalStep(status: string) {
+  const value = status.toLowerCase();
+  if (value.includes("closed") || value.includes("repaid")) return 3;
+  if (value.includes("disburs") || value.includes("overdue") || value.includes("active")) return 2;
+  if (value.includes("approv")) return 1;
+  return 0;
+}
+
 export function LoanDetailScreen() {
+  const { user } = useAuth();
   const params = useLocalSearchParams<{ id?: string }>();
   const loanId = Number(params.id);
   const [loan, setLoan] = useState<Loan | null>(null);
@@ -47,8 +65,10 @@ export function LoanDetailScreen() {
   const [message, setMessage] = useState("");
   const [reason, setReason] = useState("");
   const [showEdit, setShowEdit] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
   const [editForm, setEditForm] = useState<Partial<LoanApplicationPayload>>({});
   const [documents, setDocuments] = useState<Pick<LoanApplicationPayload, "national_id" | "bank_statement">>({ national_id: null, bank_statement: null });
+  const canManageDocuments = Boolean(loan?.can_update || (isClientAccount(user) && loan && !["approved", "disbursed", "active", "overdue", "closed", "repaid"].some((status) => loan.status.toLowerCase().includes(status))));
 
   const load = useCallback(async () => {
     if (!Number.isFinite(loanId)) {
@@ -95,13 +115,41 @@ export function LoanDetailScreen() {
 
   async function pickDocument(field: "national_id" | "bank_statement") {
     setError("");
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError("Photo library permission is required to attach documents.");
-      return;
+    try {
+      // The system photo picker does not require broad library access and works
+      // with Android's intentionally blocked READ_MEDIA_IMAGES permission.
+      const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: false, mediaTypes: ["images"], quality: 0.88 });
+      if (!result.canceled) setDocuments((current) => ({ ...current, [field]: result.assets[0] }));
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not open your photos. Check the app settings and try again."));
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: false, mediaTypes: ["images"], quality: 0.88 });
-    if (!result.canceled) setDocuments((current) => ({ ...current, [field]: result.assets[0] }));
+  }
+
+  function documentField(type: string): "national_id" | "bank_statement" | null {
+    const normalized = type.toLowerCase();
+    if (normalized.includes("national") || normalized.includes("identity")) return "national_id";
+    if (normalized.includes("bank") || normalized.includes("statement")) return "bank_statement";
+    return null;
+  }
+
+  function interestMethod() {
+    const method = loan?.interest_method || loan?.interest_rate_method;
+    return method ? formatLabel(method) : "Flat rate";
+  }
+
+  function repaymentSchedule(): LoanRepaymentScheduleItem[] {
+    if (!loan) return [];
+    if (loan.repayment_schedule?.length) return loan.repayment_schedule;
+    const count = Math.max(0, Number(loan.loan_period_months));
+    const start = new Date(loan.start_date);
+    const principal = Number(loan.principal_amount) / count;
+    const interest = Number(loan.total_interest) / count;
+    if (!count || Number.isNaN(start.getTime())) return [];
+    return Array.from({ length: count }, (_, index) => {
+      const dueDate = new Date(start);
+      dueDate.setMonth(dueDate.getMonth() + index + 1);
+      return { installment_number: index + 1, due_date: dueDate.toISOString(), principal: String(principal), interest: String(interest), amount: String(principal + interest) };
+    });
   }
 
   async function uploadDocuments() {
@@ -159,12 +207,63 @@ export function LoanDetailScreen() {
           />
           <StatusBadge tone={loanTone(loan.status)} text={formatLabel(loan.status)} />
 
+          <View style={styles.progressCard}>
+            <View style={styles.rowTop}>
+              <Text style={styles.cardTitle}>Approval progress</Text>
+              <Text style={styles.progressCaption}>{loan.status.toLowerCase().includes("reject") ? "Needs attention" : `${approvalStep(loan.status) + 1} of ${approvalSteps.length}`}</Text>
+            </View>
+            <View style={styles.progressRow}>
+              {approvalSteps.map((step, index) => {
+                const reached = index <= approvalStep(loan.status) && !loan.status.toLowerCase().includes("reject");
+                const current = index === approvalStep(loan.status) && !loan.status.toLowerCase().includes("reject");
+                return (
+                  <View key={step.key} style={styles.progressStep}>
+                    <View style={[styles.progressDot, reached && styles.progressDotReached]}>
+                      <Ionicons name={reached ? "checkmark" : "ellipse-outline"} color={reached ? "white" : colors.muted} size={13} />
+                    </View>
+                    <Text numberOfLines={1} style={[styles.progressLabel, current && styles.progressLabelCurrent]}>{step.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+            <Text style={styles.muted}>{loan.status.toLowerCase().includes("reject") ? "This application was not approved. Review the reason below and update it if changes are allowed." : `Current stage: ${formatLabel(loan.status)}`}</Text>
+          </View>
+
           <View style={styles.card}>
             <AmountRow label="Principal" value={formatCurrency(loan.principal_amount)} />
+            <AmountRow label="Interest rate" value={`${loan.interest_rate}% · ${interestMethod()}`} />
             <AmountRow label="Interest" value={formatCurrency(loan.total_interest)} />
             <AmountRow label="Total repayable" value={formatCurrency(loan.total_repayable)} />
             <AmountRow label="Monthly installment" value={formatCurrency(loan.monthly_installment)} />
             <AmountRow label="Outstanding" value={loan.total_outstanding ? formatCurrency(loan.total_outstanding) : "Not available"} tone={loan.status.toLowerCase().includes("overdue") ? "danger" : "neutral"} />
+          </View>
+
+          <View style={styles.card}>
+            <Pressable accessibilityRole="button" onPress={() => setShowSchedule((value) => !value)} style={styles.rowTop}>
+              <View style={styles.scheduleHeading}>
+                <Ionicons name="calendar-outline" color={colors.primaryDark} size={20} />
+                <View>
+                  <Text style={styles.cardTitle}>Repayment schedule</Text>
+                  <Text style={styles.compactMuted}>{loan.loan_period_months} monthly installments</Text>
+                </View>
+              </View>
+              <Ionicons name={showSchedule ? "chevron-up" : "chevron-down"} color={colors.muted} size={20} />
+            </Pressable>
+            {showSchedule ? (
+              <View style={styles.scheduleList}>
+                {!loan.repayment_schedule?.length ? <Text style={styles.scheduleNote}>Estimated schedule based on the current loan totals.</Text> : null}
+                {repaymentSchedule().map((item, index) => (
+                  <View key={`${item.installment_number || item.number || index}-${item.due_date}`} style={styles.scheduleRow}>
+                    <View style={styles.installmentNumber}><Text style={styles.installmentNumberText}>{item.installment_number || item.number || index + 1}</Text></View>
+                    <View style={styles.scheduleCopy}>
+                      <Text style={styles.documentTitle}>{formatDate(item.due_date)}</Text>
+                      <Text style={styles.compactMuted}>Principal {formatCurrency(item.principal || 0)} · Interest {formatCurrency(item.interest || 0)}</Text>
+                    </View>
+                    <Text style={styles.scheduleAmount}>{formatCurrency(item.total_due || item.amount || loan.monthly_installment)}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
 
           {loan.reason_for_rejection ? <Text style={styles.warningText}>Rejected: {loan.reason_for_rejection}</Text> : null}
@@ -176,15 +275,22 @@ export function LoanDetailScreen() {
               <Text style={styles.muted}>{loan.missing_required_documents.map((doc) => doc.label).join(", ")}</Text>
             </View>
           ) : null}
-          {loan.documents?.length ? loan.documents.map((document) => (
-            <Pressable key={document.id} disabled={!document.file_url} onPress={() => document.file_url ? Linking.openURL(document.file_url) : undefined} style={styles.documentCard}>
+          {loan.documents?.length ? loan.documents.map((document) => {
+            const field = documentField(document.document_type);
+            return (
+            <View key={document.id} style={styles.documentCard}>
               <Ionicons name="document-text-outline" color={colors.primaryDark} size={20} />
               <View style={styles.documentCopy}>
                 <Text style={styles.documentTitle}>{document.document_type_label}</Text>
                 <Text style={styles.muted}>{document.description || "Uploaded document"}</Text>
               </View>
-            </Pressable>
-          )) : <EmptyState text="No documents are attached to this loan." />}
+              <View style={styles.documentActions}>
+                {document.file_url ? <Pressable accessibilityLabel={`View ${document.document_type_label}`} onPress={() => Linking.openURL(document.file_url!)} style={styles.iconButton}><Ionicons name="eye-outline" color={colors.primaryDark} size={19} /></Pressable> : null}
+                {canManageDocuments && field ? <Pressable accessibilityLabel={`Replace ${document.document_type_label}`} onPress={() => pickDocument(field)} style={styles.iconButton}><Ionicons name="create-outline" color={colors.primaryDark} size={19} /></Pressable> : null}
+              </View>
+            </View>
+          );
+          }) : <EmptyState text="No documents are attached to this loan." />}
 
           {loan.can_update ? (
             <View style={styles.card}>
@@ -214,9 +320,10 @@ export function LoanDetailScreen() {
             </View>
           ) : null}
 
-          {loan.can_update ? (
+          {canManageDocuments ? (
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Upload documents</Text>
+              <Text style={styles.cardTitle}>Attach or replace documents</Text>
+              <Text style={styles.muted}>Choose a new file for a document type, then save your selection.</Text>
               <Pressable onPress={() => pickDocument("national_id")} style={styles.documentButton}>
                 <Ionicons name="id-card-outline" color={colors.primaryDark} size={18} />
                 <Text numberOfLines={1} style={styles.documentText}>National ID: {fileLabel(documents.national_id)}</Text>
@@ -226,7 +333,7 @@ export function LoanDetailScreen() {
                 <Text numberOfLines={1} style={styles.documentText}>Bank statement: {fileLabel(documents.bank_statement)}</Text>
               </Pressable>
               <Pressable disabled={busy} onPress={uploadDocuments} style={styles.primaryButton}>
-                {busy ? <ActivityIndicator color="white" /> : <Text style={styles.primaryButtonText}>Upload selected documents</Text>}
+                {busy ? <ActivityIndicator color="white" /> : <Text style={styles.primaryButtonText}>{loan.documents?.length ? "Save document changes" : "Upload selected documents"}</Text>}
               </Pressable>
             </View>
           ) : null}
@@ -271,14 +378,19 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm },
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, marginBottom: spacing.md, padding: spacing.lg },
   cardTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
+  compactMuted: { color: colors.muted, fontSize: 12, marginTop: 2 },
   dangerButton: { alignItems: "center", backgroundColor: colors.danger, borderRadius: radius.md, flex: 1, justifyContent: "center", minHeight: 44, minWidth: 110 },
   dangerButtonText: { color: "white", fontWeight: "900" },
   documentButton: { alignItems: "center", backgroundColor: "#ecfeff", borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, minHeight: 42, paddingHorizontal: spacing.md },
   documentCard: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.md, marginBottom: spacing.md, padding: spacing.md },
+  documentActions: { flexDirection: "row", gap: spacing.xs },
   documentCopy: { flex: 1 },
   documentText: { color: colors.primaryDark, flex: 1, fontWeight: "800" },
   documentTitle: { color: colors.text, fontWeight: "900" },
   input: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, minHeight: 44, paddingHorizontal: spacing.md },
+  installmentNumber: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 14, height: 28, justifyContent: "center", width: 28 },
+  installmentNumberText: { color: colors.primaryDark, fontSize: 12, fontWeight: "900" },
+  iconButton: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: radius.md, height: 38, justifyContent: "center", width: 38 },
   muted: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
   primaryButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radius.md, flex: 1, justifyContent: "center", minHeight: 44, minWidth: 130, paddingHorizontal: spacing.md },
   primaryButtonText: { color: "white", fontWeight: "900" },
@@ -287,7 +399,21 @@ const styles = StyleSheet.create({
   purposeGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   purposeText: { color: colors.text, fontSize: 12, fontWeight: "800" },
   purposeTextActive: { color: "white" },
+  progressCaption: { color: colors.primaryDark, fontSize: 12, fontWeight: "800" },
+  progressCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, gap: spacing.md, marginBottom: spacing.md, marginTop: spacing.md, padding: spacing.lg },
+  progressDot: { alignItems: "center", backgroundColor: "#e2e8f0", borderRadius: 14, height: 28, justifyContent: "center", width: 28 },
+  progressDotReached: { backgroundColor: colors.primary },
+  progressLabel: { color: colors.muted, fontSize: 10, fontWeight: "700", marginTop: spacing.xs, maxWidth: 70 },
+  progressLabelCurrent: { color: colors.primaryDark, fontWeight: "900" },
+  progressRow: { flexDirection: "row", justifyContent: "space-between" },
+  progressStep: { alignItems: "center", flex: 1, minWidth: 0 },
   rowTop: { alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" },
+  scheduleAmount: { color: colors.text, fontSize: 12, fontWeight: "900" },
+  scheduleCopy: { flex: 1 },
+  scheduleHeading: { alignItems: "center", flexDirection: "row", gap: spacing.sm },
+  scheduleList: { borderTopColor: colors.border, borderTopWidth: 1, marginTop: spacing.xs, paddingTop: spacing.sm },
+  scheduleNote: { color: colors.warning, fontSize: 12, marginBottom: spacing.sm },
+  scheduleRow: { alignItems: "center", flexDirection: "row", gap: spacing.sm, paddingVertical: spacing.sm },
   secondaryButton: { alignItems: "center", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 44, minWidth: 110 },
   secondaryButtonText: { color: colors.text, fontWeight: "900" },
   smallAction: { backgroundColor: colors.primarySoft, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },

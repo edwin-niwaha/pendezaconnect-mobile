@@ -31,6 +31,7 @@ function PaymentField({ keyboardType, label, onChangeText, onPickContact, placeh
 export function PaymentsScreen({ publicMode = false }: { publicMode?: boolean }) {
   const history = usePayments(!publicMode);
   const [amount, setAmount] = useState("170000");
+  const [months, setMonths] = useState("1");
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -39,6 +40,9 @@ export function PaymentsScreen({ publicMode = false }: { publicMode?: boolean })
   const [transaction, setTransaction] = useState<MobileMoneyTransaction | null>(null);
   const transactionReference = transaction?.reference_id;
   const transactionStatus = transaction?.status;
+  const monthlyAmount = Number(amount.replace(/,/g, ""));
+  const monthCount = Number(months);
+  const totalAmount = monthlyAmount * monthCount;
 
   useEffect(() => {
     if (!transactionReference || !transactionStatus || TERMINAL_STATUSES.has(transactionStatus)) return;
@@ -55,13 +59,13 @@ export function PaymentsScreen({ publicMode = false }: { publicMode?: boolean })
 
   const submitPayment = async () => {
     setPaymentError("");
-    const parsedAmount = Number(amount.replace(/,/g, ""));
     const normalizedPhone = phone.replace(/\s/g, "");
-    if (!Number.isFinite(parsedAmount) || parsedAmount < 5000) return setPaymentError("Enter an amount of at least UGX 5,000.");
+    if (!Number.isFinite(monthlyAmount) || monthlyAmount < 5000) return setPaymentError("Enter a monthly amount of at least UGX 5,000.");
+    if (!Number.isInteger(monthCount) || monthCount < 1 || monthCount > 60) return setPaymentError("Choose between 1 and 60 months.");
     if (!/^07\d{8}$/.test(normalizedPhone)) return setPaymentError("Enter a valid MTN number in the format 07XXXXXXXX.");
     setSubmitting(true);
     try {
-      setTransaction(await initiateMobileMoneyPayment({ amount: parsedAmount, phone: normalizedPhone, name: name.trim() || undefined, email: email.trim() || undefined }));
+      setTransaction(await initiateMobileMoneyPayment({ amount: totalAmount, phone: normalizedPhone, name: name.trim() || undefined, email: email.trim() || undefined }));
     } catch (requestError) {
       setPaymentError(getErrorMessage(requestError, "Could not send the payment prompt."));
     } finally { setSubmitting(false); }
@@ -86,7 +90,19 @@ export function PaymentsScreen({ publicMode = false }: { publicMode?: boolean })
       <View style={styles.paymentCard}>
         <Text style={styles.cardTitle}>Choose an amount</Text>
         <View style={styles.amountGrid}>{SPONSORSHIP_CATEGORIES.map((category) => <Pressable key={category.name} onPress={() => setAmount(String(category.amount))} style={[styles.amountChip, Number(amount) === category.amount && styles.amountChipActive]}><Text style={[styles.amountChipText, Number(amount) === category.amount && styles.amountChipTextActive]}>{formatCurrency(category.amount)} monthly</Text><Text style={[styles.categoryCaption, Number(amount) === category.amount && styles.categoryCaptionActive]}>{category.name} — {category.caption}</Text></Pressable>)}</View>
-        <PaymentField keyboardType="number-pad" label="Amount (UGX)" onChangeText={setAmount} placeholder="Minimum 5,000" value={amount} />
+        <PaymentField keyboardType="number-pad" label="Monthly amount (UGX)" onChangeText={setAmount} placeholder="Minimum 5,000" value={amount} />
+        <View style={styles.field}>
+          <Text style={styles.label}>Number of months</Text>
+          <View style={styles.monthRow}>
+            <Pressable accessibilityLabel="Decrease months" onPress={() => setMonths(String(Math.max(1, (Number(months) || 1) - 1)))} style={styles.monthButton}><Ionicons name="remove" color={colors.primaryDark} size={22} /></Pressable>
+            <TextInput accessibilityLabel="Number of months" keyboardType="number-pad" maxLength={2} onChangeText={setMonths} selectTextOnFocus style={styles.monthInput} value={months} />
+            <Pressable accessibilityLabel="Increase months" onPress={() => setMonths(String(Math.min(60, (Number(months) || 0) + 1)))} style={styles.monthButton}><Ionicons name="add" color={colors.primaryDark} size={22} /></Pressable>
+          </View>
+        </View>
+        <View style={styles.totalCard}>
+          <Text style={styles.totalLabel}>{Number.isInteger(monthCount) && monthCount > 0 ? `${formatCurrency(monthlyAmount || 0)} × ${monthCount} month${monthCount === 1 ? "" : "s"}` : "Enter a valid number of months"}</Text>
+          <Text style={styles.totalAmount}>Total: {formatCurrency(Number.isFinite(totalAmount) ? totalAmount : 0)}</Text>
+        </View>
         <PaymentField keyboardType="phone-pad" label="MTN phone number" onChangeText={setPhone} onPickContact={chooseContact} placeholder="07XXXXXXXX" value={phone} />
         <PaymentField label="Full name (optional)" onChangeText={setName} placeholder="Your name" value={name} />
         <PaymentField keyboardType="email-address" label="Email (optional)" onChangeText={setEmail} placeholder="name@example.com" value={email} />
@@ -107,6 +123,8 @@ const styles = StyleSheet.create({
   paymentCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg }, cardTitle: { color: colors.text, fontSize: 17, fontWeight: "900", marginBottom: spacing.md },
   amountGrid: { gap: spacing.sm, marginBottom: spacing.lg }, amountChip: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.md }, amountChipActive: { backgroundColor: colors.primary, borderColor: colors.primary }, amountChipText: { color: colors.text, fontSize: 15, fontWeight: "900" }, amountChipTextActive: { color: "white" }, categoryCaption: { color: colors.muted, fontSize: 12, fontStyle: "italic", lineHeight: 18, marginTop: spacing.xs }, categoryCaptionActive: { color: "#ccfbf1" },
   field: { gap: spacing.xs, marginBottom: spacing.md }, label: { color: colors.text, fontSize: 13, fontWeight: "800" }, inputRow: { position: "relative" }, input: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, fontSize: 16, paddingHorizontal: spacing.md, paddingVertical: spacing.md }, inputWithAction: { paddingRight: 58 }, contactButton: { alignItems: "center", bottom: 1, justifyContent: "center", position: "absolute", right: 1, top: 1, width: 52 },
+  monthButton: { alignItems: "center", backgroundColor: colors.primarySoft, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, height: 48, justifyContent: "center", width: 52 }, monthInput: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, flex: 1, fontSize: 18, fontWeight: "900", height: 48, textAlign: "center" }, monthRow: { flexDirection: "row", gap: spacing.sm },
+  totalCard: { backgroundColor: colors.primarySoft, borderColor: "#99f6e4", borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.lg, padding: spacing.md }, totalLabel: { color: colors.primaryDark, fontSize: 13 }, totalAmount: { color: colors.primaryDark, fontSize: 20, fontWeight: "900", marginTop: spacing.xs },
   payButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, justifyContent: "center", minHeight: 50, padding: spacing.md }, payButtonPressed: { opacity: 0.72 }, payButtonText: { color: "white", fontSize: 15, fontWeight: "900" }, paymentError: { color: colors.danger, fontWeight: "700", lineHeight: 20, marginBottom: spacing.md },
   statusCard: { backgroundColor: "#fffbeb", borderColor: "#fde68a", borderRadius: radius.lg, borderWidth: 1, marginTop: spacing.md, padding: spacing.lg }, statusSuccess: { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }, statusFailed: { backgroundColor: "#fef2f2", borderColor: "#fecaca" }, statusTop: { alignItems: "flex-start", flexDirection: "row", justifyContent: "space-between" }, statusTitle: { color: colors.text, fontSize: 17, fontWeight: "900" }, statusAmount: { color: colors.text, fontSize: 19, fontWeight: "900", marginTop: spacing.xs }, statusMessage: { color: colors.muted, lineHeight: 20, marginTop: spacing.md }, reference: { color: colors.muted, fontSize: 11, marginTop: spacing.md },
   historyTitle: { color: colors.text, fontSize: 20, fontWeight: "900", marginBottom: spacing.md, marginTop: spacing.xl }

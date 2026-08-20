@@ -1,4 +1,4 @@
-﻿export function formatCurrency(value?: string | number | null) {
+export function formatCurrency(value?: string | number | null) {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount)) return "UGX 0";
   return `UGX ${new Intl.NumberFormat("en-UG", { maximumFractionDigits: 0 }).format(amount)}`;
@@ -15,6 +15,6 @@ export function formatLabel(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export function joinMeta(parts: Array<string | number | null | undefined>) {
+export function joinMeta(parts: (string | number | null | undefined)[]) {
   return parts.filter((part) => part !== undefined && part !== null && part !== "").join(" - ");
 }

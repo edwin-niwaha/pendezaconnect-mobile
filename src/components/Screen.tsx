@@ -4,7 +4,7 @@ import { colors, spacing } from "@/constants/theme";
 
 export function Screen({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    <ScrollView alwaysBounceVertical={false} overScrollMode="never" style={styles.root} contentContainerStyle={styles.content}>
       {title ? <Text style={styles.title}>{title}</Text> : null}
       {children}
     </ScrollView>

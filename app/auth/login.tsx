@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as Google from "expo-auth-session/providers/google";
 import * as AuthSession from "expo-auth-session";
@@ -46,10 +46,11 @@ export default function Login() {
     iosClientId: googleIosClientId || googleExpoClientId || undefined,
     redirectUri,
     scopes: ["openid", "profile", "email"],
+    selectAccount: true,
     webClientId: googleWebClientId || undefined
   });
 
-  async function handleGoogleResponse(accessToken: string) {
+  const handleGoogleResponse = useCallback(async (accessToken: string) => {
     setError("");
     setGoogleLoading(true);
     try {
@@ -60,7 +61,7 @@ export default function Login() {
     } finally {
       setGoogleLoading(false);
     }
-  }
+  }, [loginWithGoogleToken]);
 
   useEffect(() => {
     const accessToken =
@@ -71,7 +72,7 @@ export default function Login() {
     } else if (response && response.type !== "success") {
       setGoogleLoading(false);
     }
-  }, [googleLoading, handledGoogleToken, response]);
+  }, [googleLoading, handleGoogleResponse, handledGoogleToken, response]);
 
   async function startGoogleSignIn() {
     setError("");
@@ -104,6 +105,12 @@ export default function Login() {
           await GoogleSignin.hasPlayServices({
             showPlayServicesUpdateDialog: true
           });
+        }
+
+        // Clear only this app's cached Google session so signIn presents the
+        // account chooser. Do not revoke access, which would disconnect the app.
+        if (GoogleSignin.hasPreviousSignIn()) {
+          await GoogleSignin.signOut();
         }
 
         const signInResponse = await GoogleSignin.signIn();

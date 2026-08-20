@@ -46,7 +46,7 @@ export function FeatureCard({
   value
 }: {
   accent?: string;
-  icon: IconName;
+  icon?: IconName;
   meta?: string;
   onPress?: () => void;
   subtitle: string;
@@ -55,13 +55,19 @@ export function FeatureCard({
 }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.feature, pressed && styles.pressed]}>
-      <View style={[styles.iconWrap, { backgroundColor: accent }]}>
-        <Ionicons name={icon} color="white" size={22} />
-      </View>
+      {icon ? (
+        <View style={[styles.iconWrap, { backgroundColor: accent }]}>
+          <Ionicons name={icon} color="white" size={22} />
+        </View>
+      ) : null}
       <View style={styles.featureBody}>
         <View style={styles.featureHeader}>
           <Text style={styles.featureTitle}>{title}</Text>
-          {value !== undefined ? <Text style={styles.featureValue}>{value}</Text> : null}
+          {value !== undefined ? (
+            <Text adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1} style={styles.featureValue}>
+              {value}
+            </Text>
+          ) : null}
         </View>
         <Text style={styles.featureSubtitle}>{subtitle}</Text>
         {meta ? <Text style={styles.featureMeta}>{meta}</Text> : null}
@@ -99,12 +105,12 @@ const styles = StyleSheet.create({
   dangerBadge: { backgroundColor: "#fee2e2", color: colors.danger },
   dangerText: { color: colors.danger },
   feature: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, flexDirection: "row", gap: spacing.md, marginBottom: spacing.md, padding: spacing.lg, shadowColor: "#0f172a", shadowOpacity: 0.06, shadowRadius: 14 },
-  featureBody: { flex: 1 },
+  featureBody: { flex: 1, minWidth: 0 },
   featureHeader: { alignItems: "flex-start", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" },
   featureMeta: { color: colors.primaryDark, fontSize: 12, fontWeight: "800", marginTop: spacing.sm, textTransform: "uppercase" },
   featureSubtitle: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
   featureTitle: { color: colors.text, flex: 1, fontSize: 17, fontWeight: "900" },
-  featureValue: { color: colors.text, fontSize: 18, fontWeight: "900" },
+  featureValue: { color: colors.text, flexShrink: 1, fontSize: 18, fontWeight: "900", minWidth: 0, textAlign: "right" },
   iconWrap: { alignItems: "center", borderRadius: 18, height: 50, justifyContent: "center", width: 50 },
   infoBadge: { backgroundColor: colors.accentSoft, color: colors.accent },
   neutralBadge: { backgroundColor: "#f1f5f9", color: colors.muted },

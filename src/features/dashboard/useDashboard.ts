@@ -3,12 +3,17 @@ import { getErrorMessage } from "@/api/client";
 import { getDashboard } from "@/api/dashboard";
 import type { Dashboard } from "@/types";
 
-export function useDashboard() {
+export function useDashboard(enabled = true) {
   const [data, setData] = useState<Dashboard | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      setError("");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -18,7 +23,7 @@ export function useDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     load();

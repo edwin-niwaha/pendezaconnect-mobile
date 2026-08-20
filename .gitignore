@@ -3,5 +3,15 @@ node_modules/
 dist/
 build/
 .env
+.env.*
+!.env.example
 *.log
 google-services.json
+!android/app/google-services.json
+credentials.json
+key.properties
+*.jks
+*.p12
+*.pem
+*.keystore
+!android/app/debug.keystore

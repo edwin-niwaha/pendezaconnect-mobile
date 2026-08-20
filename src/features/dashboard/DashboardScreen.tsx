@@ -9,20 +9,24 @@ import { colors, radius, spacing } from "@/constants/theme";
 import { ResourceError } from "@/features/shared/ResourceStates";
 import { useAuth } from "@/providers/AuthProvider";
 import { formatCurrency, formatLabel } from "@/utils/format";
-import { isClientAccount, isSponsorAccount, isStaffAccount } from "@/utils/roles";
+import { isClientAccount, isGuestAccount, isSponsorAccount, isStaffAccount } from "@/utils/roles";
 import { backendUrl } from "@/utils/backendRoutes";
+import { PendingVerificationScreen } from "./PendingVerificationScreen";
 import { useDashboard } from "./useDashboard";
 
 export function DashboardScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const { user } = useAuth();
-  const { data, error, loading } = useDashboard();
+  const guest = isGuestAccount(user);
+  const { data, error, loading } = useDashboard(!guest);
   const accountType = user?.account_type;
   const firstName = user?.first_name || user?.username || "there";
   const staff = isStaffAccount(user);
   const canUseSponsorship = staff || isSponsorAccount(user);
   const canUseLoans = staff || isClientAccount(user);
   const canUseSavings = staff || isClientAccount(user);
+
+  if (guest) return <PendingVerificationScreen />;
 
   if (loading && !data) return <LoadingState />;
 
@@ -50,7 +54,7 @@ export function DashboardScreen() {
 
       {data ? (
         <>
-          <SectionHeader title="Today at a glance" subtitle="Role-aware summaries without opening restricted sections." />
+          <SectionHeader title="Today at a glance" subtitle="Role-aware summaries..." />
           <View style={styles.summaryGrid}>
             {typeof data.sponsors === "number" ? <MiniStat label="Sponsors" value={data.sponsors} width={summaryCardWidth} onPress={() => router.push("/(tabs)/sponsors")} /> : null}
             {typeof data.clients === "number" ? <MiniStat label="Clients" value={data.clients} width={summaryCardWidth} onPress={() => router.push("/(tabs)/clients")} /> : null}
@@ -71,7 +75,7 @@ export function DashboardScreen() {
             ) : null}
           </View>
 
-          <SectionHeader title="Core services" subtitle="Tap a card to continue. The app only shows services allowed for your account." />
+          <SectionHeader title="Core services" subtitle="Tap a card to continue..." />
           <View style={styles.serviceGrid}>
             {canUseSponsorship ? (
               <CoreServiceCard

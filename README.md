@@ -120,6 +120,13 @@ Play Store production build:
 eas build --platform android --profile production
 ```
 
+Production signing is handled by EAS-managed Android credentials. The native
+release build intentionally has no debug-key fallback. Configure or verify the
+upload key with `eas credentials --platform android` before the first store
+build. Never commit `credentials.json`, upload keystores, signing properties, or
+credential passwords. A local Gradle release artifact is unsigned unless a
+protected release signing configuration is supplied explicitly.
+
 Before building for production, configure:
 
 - `EXPO_PUBLIC_API_BASE_URL=https://YOUR_PRODUCTION_DOMAIN/api/v1`
@@ -138,6 +145,9 @@ Before building for production, configure:
 - Privacy policy URL is available for Play Store listing.
 - Data Safety form accounts for login/profile data, profile images, child photos captured by authorized staff, and financial records displayed from the secure backend.
 - Username/password login, Google sign-in, token refresh, logout, avatar upload, and child photo upload are smoke tested on a release or preview build.
+
+Detailed Firebase notification, GitHub, security, and Play Store instructions are
+in [`docs/production-release.md`](docs/production-release.md).
 
 ## Scripts
 

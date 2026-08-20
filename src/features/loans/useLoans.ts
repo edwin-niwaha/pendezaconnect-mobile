@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getErrorMessage } from "@/api/client";
 import { listApprovalQueue, listLoansPage } from "@/api/loans";
 import { usePaginatedResource } from "@/features/shared/usePaginatedResource";

@@ -1,5 +1,4 @@
-﻿import { api, listOf } from "@/api/client";
-import { paginatedOf } from "@/api/client";
+import { api, listOf, paginatedOf, publicApi } from "@/api/client";
 import type { Paginated, Payment } from "@/types";
 
 export async function listPayments(search = "") {
@@ -21,11 +20,11 @@ export type MobileMoneyTransaction = { reference_id: string; status: MobileMoney
 export type MobileMoneyPaymentPayload = { amount: number; phone: string; name?: string; email?: string };
 
 export async function initiateMobileMoneyPayment(payload: MobileMoneyPaymentPayload) {
-  const response = await api.post<MobileMoneyTransaction>("/payments/mobile-money/initiate/", payload);
+  const response = await publicApi.post<MobileMoneyTransaction>("/payments/mobile-money/initiate/", payload);
   return response.data;
 }
 
 export async function getMobileMoneyPaymentStatus(referenceId: string) {
-  const response = await api.get<MobileMoneyTransaction>(`/payments/mobile-money/${referenceId}/status/`);
+  const response = await publicApi.get<MobileMoneyTransaction>(`/payments/mobile-money/${referenceId}/status/`);
   return response.data;
 }

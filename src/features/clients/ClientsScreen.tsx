@@ -1,4 +1,4 @@
-﻿import { RowCard } from "@/components/Card";
+import { RowCard } from "@/components/Card";
 import { EmptyState, LoadingState } from "@/components/Screen";
 import { SearchBox } from "@/components/SearchBox";
 import { PaginatedListFooter, ResourceError } from "@/features/shared/ResourceStates";

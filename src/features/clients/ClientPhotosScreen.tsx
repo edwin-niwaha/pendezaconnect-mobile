@@ -34,14 +34,14 @@ export function ClientPhotosScreen() {
           </View>
           <View style={styles.summaryCopy}>
             <Text style={styles.summaryTitle}>Authorized client gallery</Text>
-            <Text style={styles.summaryText}>Showing photo fields returned by the secure clients API. Total accessible clients: {count || items.length}.</Text>
+            <Text style={styles.summaryText}>Total accessible clients: {count || items.length}.</Text>
           </View>
         </View>
         <SearchBox value={search} onChangeText={setSearch} placeholder="Search clients" />
         <ResourceError message={error} />
       </>
     );
-  }
+  }  
 
   function renderClient({ item }: { item: Client }) {
     const imageUrl = getClientPhotoUrl(item);

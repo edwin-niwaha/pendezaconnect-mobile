@@ -1,4 +1,4 @@
-﻿import { useCallback } from "react";
+import { useCallback } from "react";
 import { listSponsorsPage } from "@/api/sponsors";
 import { usePaginatedResource } from "@/features/shared/usePaginatedResource";
 

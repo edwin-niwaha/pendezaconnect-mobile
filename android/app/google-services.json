@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "887994843584",
+    "project_id": "pendezaconnect",
+    "storage_bucket": "pendezaconnect.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:887994843584:android:4daf5118fa782401f1c825",
+        "android_client_info": {
+          "package_name": "org.pendeza.connect"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "887994843584-1b2h9nn40p00dplp26fb6u9fh4l2h0vj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "org.pendeza.connect",
+            "certificate_hash": "1d48a81837d496c6c16ac1fb54f7cdffe3ce66a7"
+          }
+        },
+        {
+          "client_id": "887994843584-ds1v3pom7ml5fe3gt6vncvt8stjn4i1v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "org.pendeza.connect",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "887994843584-gep9350oqbd24t4gra62dbffua7fa032.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAsqqZGI-phmiDUqH2ECa0f0So-n4dIfPg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "887994843584-gep9350oqbd24t4gra62dbffua7fa032.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

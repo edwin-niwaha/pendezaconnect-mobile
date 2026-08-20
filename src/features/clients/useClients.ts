@@ -1,4 +1,4 @@
-﻿import { useCallback } from "react";
+import { useCallback } from "react";
 import { listClientsPage } from "@/api/clients";
 import { usePaginatedResource } from "@/features/shared/usePaginatedResource";
 

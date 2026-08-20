@@ -1,7 +1,5 @@
-﻿import { api, listOf } from "@/api/client";
-import type { Sponsor, SponsorPayments } from "@/types";
-import { paginatedOf } from "@/api/client";
-import type { Paginated } from "@/types";
+import { api, listOf , paginatedOf } from "@/api/client";
+import type { Sponsor, SponsorPayments , Paginated } from "@/types";
 
 export async function listSponsors(search = "") {
   const response = await api.get<Sponsor[] | { results: Sponsor[] }>("/sponsors/", {

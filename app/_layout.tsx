@@ -1,9 +1,11 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, View } from "react-native";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { colors, radius, spacing } from "@/constants/theme";
 import { getProductionConfigError } from "@/config/environment";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { NotificationCoordinator } from "@/features/notifications/NotificationCoordinator";
 
 export default function RootLayout() {
   const configError = getProductionConfigError();
@@ -21,10 +23,13 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }} />
-    </AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
+        <NotificationCoordinator />
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false }} />
+      </AuthProvider>
+    </AppErrorBoundary>
   );
 }
 

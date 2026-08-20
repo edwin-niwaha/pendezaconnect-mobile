@@ -1,7 +1,5 @@
-﻿import { api, listOf } from "@/api/client";
-import type { Staff } from "@/types";
-import { paginatedOf } from "@/api/client";
-import type { Paginated } from "@/types";
+import { api, listOf , paginatedOf } from "@/api/client";
+import type { Staff , Paginated } from "@/types";
 
 export async function listStaff(search = "") {
   const response = await api.get<Staff[] | { results: Staff[] }>("/staff/", {

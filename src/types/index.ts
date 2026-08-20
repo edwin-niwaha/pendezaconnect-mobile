@@ -124,6 +124,8 @@ export type Loan = {
   borrower_reg_number: string;
   principal_amount: string;
   interest_rate: string;
+  interest_method?: string | null;
+  interest_rate_method?: string | null;
   total_interest: string;
   total_repayable: string;
   monthly_installment: string;
@@ -137,12 +139,24 @@ export type Loan = {
   reason_for_rejection?: string | null;
   reason_for_approval?: string | null;
   documents?: LoanDocument[];
-  missing_required_documents?: Array<{ type: string; label: string }>;
+  missing_required_documents?: { type: string; label: string }[];
   can_approve?: boolean;
   can_reject?: boolean;
   can_update?: boolean;
   can_delete?: boolean;
   can_disburse?: boolean;
+  repayment_schedule?: LoanRepaymentScheduleItem[];
+};
+
+export type LoanRepaymentScheduleItem = {
+  installment_number?: number;
+  number?: number;
+  due_date: string;
+  principal?: string;
+  interest?: string;
+  amount?: string;
+  total_due?: string;
+  status?: string;
 };
 
 export type LoanDocument = {

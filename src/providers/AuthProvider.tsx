@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { subscribeToSessionInvalidation } from "@/api/client";
 import { authApi } from "@/api/services";
 import { clearTokens, getTokens, saveTokens } from "@/utils/storage";
+import { unregisterPushNotifications } from "@/features/notifications/notifications";
 import type { User } from "@/types";
 
 type AuthContextValue = {
@@ -49,9 +51,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await clearTokens();
-    setUser(null);
+    try {
+      await unregisterPushNotifications();
+    } finally {
+      await clearTokens();
+      setUser(null);
+    }
   }, []);
+
+  useEffect(() => subscribeToSessionInvalidation(() => setUser(null)), []);
 
   useEffect(() => {
     let mounted = true;
