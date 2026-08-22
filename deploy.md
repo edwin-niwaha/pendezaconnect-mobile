@@ -237,6 +237,11 @@ available after the first Play upload.
 eas build --platform android --profile preview
 ```
 
+# Local build
+```
+eas build --platform android --profile production --local
+```
+
 Install the APK on a physical device and test:
 
 - Username/password and Google login; invalid/expired credentials; refresh,
