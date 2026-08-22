@@ -384,3 +384,10 @@ Google Play → Pendeza Connect Android app → HTTPS → Django API on Railway
 
 The release is complete only after the Play-installed build is verified and the
 production services are stable under monitoring.
+
+
+Play Store App testing
+https://support.google.com/googleplay/android-developer/answer/9844679?hl=en-419#zippy=%2Cupload-and-share-apps-for-testing%2Cadd-authorized-uploaders
+
+https://play.google.com/console/signup
+https://play.google.com/console/internal-app-sharing

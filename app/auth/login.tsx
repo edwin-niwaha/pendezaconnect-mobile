@@ -18,6 +18,17 @@ const googleExpoClientId = process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || "";
 const googleAndroidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "";
 const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || googleExpoClientId || "";
+// expo-auth-session validates its platform client ID while rendering. Native
+// builds use @react-native-google-signin/google-signin below, but this hook is
+// still created for web support. Keep an inert value here so a build with no
+// Google configuration can render the disabled sign-in button instead of
+// crashing the entire route.
+const googleAuthSessionClientId =
+  Platform.OS === "android"
+    ? googleAndroidClientId || googleExpoClientId || googleWebClientId || "google-auth-not-configured"
+    : Platform.OS === "ios"
+      ? googleIosClientId || googleExpoClientId || googleWebClientId || "google-auth-not-configured"
+      : googleWebClientId || "google-auth-not-configured";
 const isNativeMobile = Platform.OS === "android" || Platform.OS === "ios";
 const isExpoGo = Constants.appOwnership === "expo";
 const googleConfigured =
@@ -41,9 +52,9 @@ export default function Login() {
     []
   );
   const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: googleAndroidClientId || googleExpoClientId || undefined,
-    clientId: googleExpoClientId || googleWebClientId || undefined,
-    iosClientId: googleIosClientId || googleExpoClientId || undefined,
+    androidClientId: googleAuthSessionClientId,
+    clientId: googleAuthSessionClientId,
+    iosClientId: googleAuthSessionClientId,
     redirectUri,
     scopes: ["openid", "profile", "email"],
     selectAccount: true,
