@@ -110,13 +110,13 @@ Production builds must set a real HTTPS API URL. The app intentionally blocks pr
 
 Preview build:
 
-```powershell
+```powershell - A preview profile is normally for testing before production
 eas build --platform android --profile preview
 ```
 
 Play Store production build:
 
-```powershell
+```powershell - building the version you intend to submit to Google Play
 eas build --platform android --profile production
 ```
 

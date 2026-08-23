@@ -396,3 +396,13 @@ https://support.google.com/googleplay/android-developer/answer/9844679?hl=en-419
 
 https://play.google.com/console/signup
 https://play.google.com/console/internal-app-sharing
+
+
+# First preview build:
+git switch -c develop
+git push -u origin develop
+
+# First production build:
+git switch main
+git merge --no-ff develop
+git push origin main

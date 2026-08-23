@@ -9,9 +9,13 @@ build/
 google-services.json
 !android/app/google-services.json
 credentials.json
+service-account*.json
+firebase-adminsdk*.json
 key.properties
+*.properties.local
 *.jks
 *.p12
 *.pem
 *.keystore
 !android/app/debug.keystore
+.eas/build/
