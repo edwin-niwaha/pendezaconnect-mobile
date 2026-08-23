@@ -399,10 +399,55 @@ https://play.google.com/console/internal-app-sharing
 
 
 # First preview build:
+# Create development branch and switch to it
 git switch -c develop
+
+# Push it to GitHub
 git push -u origin develop
 
 # First production build:
 git switch main
 git merge --no-ff develop
 git push origin main
+
+# Git + Expo EAS Workflow — Quick Summary
+
+### 1. Development / Preview
+
+```bash
+git switch develop
+git pull origin develop
+
+# Make changes, then:
+git add .
+git commit -m "Describe changes"
+git push origin develop
+
+# Preview build
+eas build --platform android --profile preview
+```
+
+### 2. Promote to Production
+
+After testing the preview:
+
+```bash
+git switch main
+git pull origin main
+
+git merge --no-ff develop
+git push origin main
+
+# Production build
+eas build --platform android --profile production
+```
+
+### Branch Rules
+
+* `develop` → development, testing, preview builds.
+* `main` → production-ready code and production builds.
+* Never develop directly on `main`.
+* Don't use `git switch -c develop` after the branch has already been created; use `git switch develop`.
+* Keep secrets out of Git; use EAS environment variables.
+
+**Flow:** `develop → preview/test → merge → main → production build`
