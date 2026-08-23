@@ -4,8 +4,6 @@ on:
   pull_request:
     branches: [develop]
     types: [opened, reopened, synchronize, ready_for_review]
-  push:
-    branches: [develop]
 
 jobs:
   build_android_preview:
