@@ -4,20 +4,26 @@ import { listApprovalQueue, listLoansPage } from "@/api/loans";
 import { usePaginatedResource } from "@/features/shared/usePaginatedResource";
 import type { Loan } from "@/types";
 
-export function useLoans() {
-  const loader = useCallback(({ page, search }: { page: number; search: string }) => listLoansPage({ page, search }), []);
+export function useLoans(statuses: string[] = [], includeQueue = false) {
+  const statusKey = statuses.join(",");
+  const loader = useCallback(({ page, search }: { page: number; search: string }) => listLoansPage({ page, search, statuses: statusKey ? statusKey.split(",") : [] }), [statusKey]);
   const resource = usePaginatedResource(loader);
   const [queue, setQueue] = useState<Loan[]>([]);
   const [queueError, setQueueError] = useState("");
 
   const loadQueue = useCallback(async () => {
+    if (!includeQueue) {
+      setQueue([]);
+      setQueueError("");
+      return;
+    }
     setQueueError("");
     try {
       setQueue(await listApprovalQueue());
     } catch (err) {
       setQueueError(getErrorMessage(err, "Unable to load approval queue."));
     }
-  }, []);
+  }, [includeQueue]);
 
   useEffect(() => {
     void loadQueue();

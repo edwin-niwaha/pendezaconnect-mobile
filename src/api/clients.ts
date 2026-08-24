@@ -8,9 +8,9 @@ export async function listClients(search = "") {
   return listOf(response.data);
 }
 
-export async function listClientsPage({ page = 1, search = "" }: { page?: number; search?: string }) {
+export async function listClientsPage({ page = 1, search = "", view = "all" }: { page?: number; search?: string; view?: string }) {
   const response = await api.get<Client[] | Paginated<Client>>("/clients/", {
-    params: { ...(search ? { search } : {}), page, page_size: 10 }
+    params: { ...(search ? { search } : {}), ...(view !== "all" ? { view } : {}), page, page_size: 10 }
   });
   return paginatedOf(response.data, page, 10);
 }

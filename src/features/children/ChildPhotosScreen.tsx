@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { ActivityIndicator, FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { canChooseFromPhotoLibrary } from "@/features/shared/photoLibraryPermission";
+import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { getErrorMessage } from "@/api/client";
 import { uploadChildPhoto } from "@/api/children";
 import { EmptyState, LoadingState } from "@/components/Screen";
@@ -27,13 +28,20 @@ function scopeTitle(scope: string) {
   return "Child Photos";
 }
 
+const childScopes = [
+  { label: "All active", value: "" },
+  { label: "Sponsored", value: "sponsored" },
+  { label: "Needs sponsor", value: "non-sponsored" },
+  { label: "Departed", value: "departed" }
+] as const;
+
 export function ChildPhotosScreen() {
   const params = useLocalSearchParams<{ scope?: string }>();
-  const scope = typeof params.scope === "string" ? params.scope : "";
+  const initialScope = typeof params.scope === "string" ? params.scope : "";
+  const [scope, setScope] = useState(initialScope);
   const { count, error, hasMore, items, loadMore, loadMoreError, loading, loadingMore, refresh, refreshing, search, setSearch } = useChildren(scope);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [viewer, setViewer] = useState<Child | null>(null);
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState("");
   const [photoMessage, setPhotoMessage] = useState("");
@@ -60,8 +68,7 @@ export function ChildPhotosScreen() {
   async function chooseFromLibrary(child: Child) {
     setPhotoError("");
     setPhotoMessage("");
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
+    if (!await canChooseFromPhotoLibrary()) {
       setPhotoError("Photo library permission is required to select a child photo.");
       return;
     }
@@ -93,17 +100,18 @@ export function ChildPhotosScreen() {
   function renderHeader() {
     return (
       <>
-        <Text style={styles.title}>{scopeTitle(scope)}</Text>
-        <View style={styles.summary}>
-          <View style={styles.summaryIcon}>
-            <Ionicons name="camera" color="white" size={24} />
-          </View>
-          <View style={styles.summaryCopy}>
-            <Text style={styles.summaryTitle}>Photo gallery</Text>
-            <Text style={styles.summaryText}>Showing {count || items.length} authorized child records with progressive loading.</Text>
-          </View>
+        <View style={styles.headingRow}>
+          <View style={styles.headingCopy}><Text style={styles.title}>Child photos</Text><Text style={styles.headingSubtitle}>Manage current profile pictures</Text></View>
+          <View style={styles.countBadge}><Text style={styles.countValue}>{count}</Text><Text style={styles.countLabel}>children</Text></View>
         </View>
         <SearchBox value={search} onChangeText={setSearch} placeholder="Search children" />
+        <View style={styles.filterHeading}><Text style={styles.filterLabel}>Child view</Text><Text style={styles.filterCount}>{scopeTitle(scope)}</Text></View>
+        <ScrollView contentContainerStyle={styles.filterRow} horizontal showsHorizontalScrollIndicator={false}>
+          {childScopes.map((item) => {
+            const active = scope === item.value;
+            return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} key={item.value || "all"} onPress={() => setScope(item.value)} style={[styles.filterChip, active && styles.filterChipActive]}><Text style={[styles.filterText, active && styles.filterTextActive]}>{item.label}</Text></Pressable>;
+          })}
+        </ScrollView>
         <ResourceError message={error || photoError} />
         {photoMessage ? <Text style={styles.success}>{photoMessage}</Text> : null}
         {selectedChild && selectedAsset ? (
@@ -130,7 +138,7 @@ export function ChildPhotosScreen() {
   function renderChild({ item }: { item: Child }) {
     return (
       <Pressable onPress={() => router.push(`/(tabs)/children/${item.id}`)} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
-        <Pressable onPress={() => router.push(`/(tabs)/children/${item.id}`)} style={styles.photoButton}>
+        <View style={styles.photoButton}>
           {item.current_picture_url ? (
             <Image source={{ uri: item.current_picture_url }} style={styles.photo} />
           ) : (
@@ -138,9 +146,9 @@ export function ChildPhotosScreen() {
               <Ionicons name="person" color={colors.primaryDark} size={24} />
             </View>
           )}
-        </Pressable>
+        </View>
         <Text numberOfLines={1} style={styles.childName}>{item.full_name}</Text>
-        <Text numberOfLines={1} style={styles.childMeta}>{joinMeta([item.prefixed_id, item.is_sponsored ? "Sponsored" : "Needs sponsor"])}</Text>
+        <Text numberOfLines={1} style={styles.childMeta}>{joinMeta([item.prefixed_id, item.is_departed ? "Departed" : item.is_sponsored ? "Sponsored" : "Needs sponsor"])}</Text>
         <View style={styles.actions}>
           <Pressable accessibilityLabel={`Take photo for ${item.full_name}`} onPress={() => chooseFromCamera(item)} style={styles.iconAction}>
             <Ionicons name="camera-outline" color={colors.primaryDark} size={18} />
@@ -154,7 +162,6 @@ export function ChildPhotosScreen() {
   }
 
   return (
-    <>
       <FlatList
         data={visibleItems}
         keyExtractor={(item) => String(item.id)}
@@ -165,22 +172,16 @@ export function ChildPhotosScreen() {
         ListFooterComponent={<PaginatedListFooter endText="All matching children are loaded." error={loadMoreError} loading={loadingMore} loadingText="Loading more photos..." onRetry={loadMore} showEnd={items.length > 0 && !hasMore} />}
         columnWrapperStyle={styles.columns}
         contentContainerStyle={styles.content}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
         onEndReached={loadMore}
         onEndReachedThreshold={0.35}
         refreshing={refreshing}
+        removeClippedSubviews
         onRefresh={refresh}
         style={styles.root}
+        windowSize={7}
       />
-      <Modal animationType="fade" visible={Boolean(viewer)} transparent onRequestClose={() => setViewer(null)}>
-        <View style={styles.viewer}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close photo viewer" onPress={() => setViewer(null)} style={styles.closeButton}>
-            <Ionicons name="close" color="white" size={24} />
-          </Pressable>
-          {viewer?.current_picture_url ? <Image resizeMode="contain" source={{ uri: viewer.current_picture_url }} style={styles.viewerImage} /> : null}
-          <Text style={styles.viewerTitle}>{viewer?.full_name}</Text>
-        </View>
-      </Modal>
-    </>
   );
 }
 
@@ -188,9 +189,22 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
   childMeta: { color: colors.muted, fontSize: 12, marginTop: spacing.xs },
   childName: { color: colors.text, fontSize: 14, fontWeight: "900", marginTop: spacing.sm },
-  closeButton: { alignItems: "center", backgroundColor: "rgba(15,23,42,0.72)", borderRadius: 22, height: 44, justifyContent: "center", position: "absolute", right: spacing.lg, top: spacing.xl, width: 44, zIndex: 2 },
   columns: { gap: spacing.md },
   content: { padding: spacing.lg, paddingBottom: 36 },
+  countBadge: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: radius.md, minWidth: 62, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  countLabel: { color: colors.primaryDark, fontSize: 9, fontWeight: "800", textTransform: "uppercase" },
+  countValue: { color: colors.primaryDark, fontSize: 18, fontWeight: "900" },
+  filterChip: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, justifyContent: "center", minHeight: 36, paddingHorizontal: spacing.md },
+  filterChipActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  filterCount: { color: colors.muted, fontSize: 11, fontWeight: "800" },
+  filterHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm },
+  filterLabel: { color: colors.text, fontSize: 13, fontWeight: "900" },
+  filterRow: { gap: spacing.sm, marginBottom: spacing.md, paddingRight: spacing.lg },
+  filterText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
+  filterTextActive: { color: "white" },
+  headingCopy: { flex: 1 },
+  headingRow: { alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between", marginBottom: spacing.lg },
+  headingSubtitle: { color: colors.muted, fontSize: 13, marginTop: 3 },
   iconAction: { alignItems: "center", backgroundColor: "#ecfeff", borderRadius: radius.md, flex: 1, justifyContent: "center", minHeight: 36 },
   photo: { aspectRatio: 1, borderRadius: radius.md, width: "100%" },
   photoButton: { aspectRatio: 1, width: "100%" },
@@ -208,14 +222,6 @@ const styles = StyleSheet.create({
   secondaryButton: { alignItems: "center", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 42 },
   secondaryButtonText: { color: colors.text, fontWeight: "800" },
   success: { backgroundColor: "#dcfce7", borderRadius: radius.md, color: colors.success, fontWeight: "700", marginBottom: spacing.md, padding: spacing.md },
-  summary: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: radius.lg, flexDirection: "row", gap: spacing.md, marginBottom: spacing.lg, padding: spacing.lg },
-  summaryCopy: { flex: 1 },
-  summaryIcon: { alignItems: "center", backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 16, height: 48, justifyContent: "center", width: 48 },
-  summaryText: { color: "#ccfbf1", lineHeight: 20, marginTop: spacing.xs },
-  summaryTitle: { color: "white", fontSize: 17, fontWeight: "900" },
   tile: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flex: 1, marginBottom: spacing.md, padding: spacing.sm },
-  title: { color: colors.text, fontSize: 24, fontWeight: "800", marginBottom: spacing.lg },
-  viewer: { alignItems: "center", backgroundColor: "rgba(2,6,23,0.94)", flex: 1, justifyContent: "center", padding: spacing.lg },
-  viewerImage: { height: "76%", width: "100%" },
-  viewerTitle: { color: "white", fontSize: 18, fontWeight: "900", marginTop: spacing.lg, textAlign: "center" }
+  title: { color: colors.text, fontSize: 24, fontWeight: "900" }
 });

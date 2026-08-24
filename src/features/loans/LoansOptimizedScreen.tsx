@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { applyForLoan } from "@/api/loans";
 import { getErrorMessage } from "@/api/client";
 import { AmountRow, FeatureCard, SectionHeader, StatusBadge } from "@/components/Polished";
@@ -27,6 +27,17 @@ const loanPurposes = [
   { label: "Salary Advance", value: "salary" }
 ];
 
+const loanStatusFilters = [
+  { label: "All", statuses: [], value: "all" },
+  { label: "Pending", statuses: ["pending", "boo_approved", "hof_approved", "ed_approved"], value: "pending" },
+  { label: "Approved", statuses: ["approved"], value: "approved" },
+  { label: "Disbursed", statuses: ["disbursed"], value: "disbursed" },
+  { label: "Overdue", statuses: ["overdue"], value: "overdue" },
+  { label: "Repaid", statuses: ["repaid"], value: "repaid" },
+  { label: "Closed", statuses: ["closed"], value: "closed" },
+  { label: "Rejected", statuses: ["rejected", "ed_rejected", "hof_rejected"], value: "rejected" }
+] as const;
+
 function loanTone(status: string): "success" | "warning" | "danger" | "info" | "neutral" {
   const normalized = status.toLowerCase();
   if (normalized.includes("reject") || normalized.includes("overdue")) return "danger";
@@ -48,12 +59,17 @@ function fileLabel(asset?: LoanAsset | null) {
 
 export function LoansOptimizedScreen() {
   const { user } = useAuth();
-  const { count, error, hasMore, items, loadMore, loadMoreError, loading, loadingMore, queue, refresh, refreshing, search, setSearch } = useLoans();
+  const client = isClientAccount(user);
+  const staff = isStaffAccount(user);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const selectedStatuses = loanStatusFilters.find((filter) => filter.value === statusFilter)?.statuses ?? loanStatusFilters[0].statuses;
+  const { count, error, hasMore, items, loadMore, loadMoreError, loading, loadingMore, queue, refresh, refreshing, search, setSearch } = useLoans([...selectedStatuses], staff);
   const [showApply, setShowApply] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [formMessage, setFormMessage] = useState("");
   const [applyToast, setApplyToast] = useState("");
+  const [hasBlockingLoan, setHasBlockingLoan] = useState(true);
   const [form, setForm] = useState<LoanApplicationPayload>({
     principal_amount: "",
     loan_purpose: "business",
@@ -64,16 +80,19 @@ export function LoansOptimizedScreen() {
     bank_statement: null
   });
 
-  const client = isClientAccount(user);
-  const staff = isStaffAccount(user);
-  const activeLoans = items.filter((item) => ["approved", "disbursed", "overdue"].includes(item.status)).length;
-  const overdueLoans = items.filter((item) => item.status.toLowerCase().includes("overdue")).length;
-  const outstanding = items.reduce((sum, item) => sum + Number(item.total_outstanding ?? 0), 0);
-  const runningLoans = items.filter((item) => Number(item.total_outstanding ?? 0) > 0 && ["approved", "disbursed", "active", "overdue"].some((status) => item.status.toLowerCase().includes(status)));
+  const displayItems = selectedStatuses.length ? items.filter((item) => (selectedStatuses as readonly string[]).includes(item.status)) : items;
+  const activeLoans = displayItems.filter((item) => ["approved", "disbursed", "overdue"].includes(item.status)).length;
+  const overdueLoans = displayItems.filter((item) => item.status.toLowerCase().includes("overdue")).length;
+  const outstanding = displayItems.reduce((sum, item) => sum + Number(item.total_outstanding ?? 0), 0);
+  const runningLoans = displayItems.filter((item) => Number(item.total_outstanding ?? 0) > 0 && ["approved", "disbursed", "active", "overdue"].some((status) => item.status.toLowerCase().includes(status)));
   const primaryRunningLoanId = runningLoans[0]?.id;
   const runningLoanIds = runningLoans.map((loan) => loan.id).sort((a, b) => a - b).join("-");
-  const hasBlockingLoan = items.some((item) => !["closed", "repaid", "rejected", "cancelled", "canceled"].some((status) => item.status.toLowerCase().includes(status)));
-  const nextDue = items.filter((item) => item.due_date).sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)))[0];
+  const nextDue = displayItems.filter((item) => item.due_date).sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)))[0];
+
+  useEffect(() => {
+    if (statusFilter !== "all" || loading) return;
+    setHasBlockingLoan(items.some((item) => !["closed", "repaid", "rejected", "cancelled", "canceled"].some((status) => item.status.toLowerCase().includes(status))));
+  }, [items, loading, statusFilter]);
 
   useEffect(() => {
     if (!client || loading || !primaryRunningLoanId || outstanding <= 0 || !user) return;
@@ -130,6 +149,7 @@ export function LoansOptimizedScreen() {
     setSubmitting(true);
     try {
       const loan = await applyForLoan(form);
+      setHasBlockingLoan(true);
       setFormMessage(`Loan #${loan.id} submitted for review.`);
       setShowApply(false);
       setForm({ principal_amount: "", loan_purpose: "business", loan_period_months: "", start_date: todayIso(), reason_for_approval: "", national_id: null, bank_statement: null });
@@ -220,6 +240,15 @@ export function LoansOptimizedScreen() {
         ) : null}
         {renderApplicationForm()}
         <SearchBox value={search} onChangeText={setSearch} placeholder="Search loans" />
+        <View style={styles.filterSection}>
+          <View style={styles.filterHeading}><Text style={styles.filterLabel}>Filter by status</Text><Text style={styles.filterCount}>{count} result{count === 1 ? "" : "s"}</Text></View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            {loanStatusFilters.map((filter) => {
+              const active = statusFilter === filter.value;
+              return <Pressable key={filter.value} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => setStatusFilter(filter.value)} style={[styles.filterChip, active && styles.filterChipActive]}><Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text></Pressable>;
+            })}
+          </ScrollView>
+        </View>
         {staff && queue.length ? (
           <View style={styles.queueCard}>
             <Text style={styles.queueTitle}>Approval queue</Text>
@@ -248,12 +277,12 @@ export function LoansOptimizedScreen() {
 
   return (
     <FlatList
-      data={items}
+      data={displayItems}
       keyExtractor={(item) => String(item.id)}
       renderItem={renderLoan}
       ListHeaderComponent={renderHeader()}
-      ListEmptyComponent={!loading && !error ? <ResourceEmpty text={search ? "No loans match your search." : "No loans available for your account."} /> : null}
-      ListFooterComponent={<PaginatedListFooter endText="All matching loans are loaded." error={loadMoreError} loading={loadingMore} loadingText="Loading more loans..." onRetry={loadMore} showEnd={items.length > 0 && !hasMore} />}
+      ListEmptyComponent={!loading && !error ? <ResourceEmpty text={search ? "No loans match your search and selected status." : statusFilter !== "all" ? "No loans have this status." : "No loans available for your account."} /> : null}
+      ListFooterComponent={<PaginatedListFooter endText="All matching loans are loaded." error={loadMoreError} loading={loadingMore} loadingText="Loading more loans..." onRetry={loadMore} showEnd={displayItems.length > 0 && !hasMore} />}
       contentContainerStyle={styles.content}
       onEndReached={loadMore}
       onEndReachedThreshold={0.35}
@@ -282,6 +311,15 @@ const styles = StyleSheet.create({
   formActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   formCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.md, padding: spacing.lg },
   formTitle: { color: colors.text, fontSize: 17, fontWeight: "900", marginBottom: spacing.md },
+  filterChip: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, justifyContent: "center", minHeight: 36, paddingHorizontal: spacing.md },
+  filterChipActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  filterChipText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
+  filterChipTextActive: { color: "white" },
+  filterCount: { color: colors.muted, fontSize: 11, fontWeight: "800" },
+  filterHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm },
+  filterLabel: { color: colors.text, fontSize: 13, fontWeight: "900" },
+  filterRow: { gap: spacing.sm, paddingRight: spacing.lg },
+  filterSection: { marginBottom: spacing.md },
   input: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, marginBottom: spacing.sm, minHeight: 44, paddingHorizontal: spacing.md },
   meta: { color: colors.primaryDark, fontSize: 12, fontWeight: "800", marginTop: spacing.sm, textTransform: "uppercase" },
   muted: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },

@@ -36,9 +36,9 @@
       }
     },
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#115e59"
     },
     "web": {
       "bundler": "metro"
