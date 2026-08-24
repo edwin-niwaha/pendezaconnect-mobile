@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import * as Contacts from "expo-contacts";
 import * as ImagePicker from "expo-image-picker";
-import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import * as Notifications from "expo-notifications";
+import { canChooseFromPhotoLibrary } from "@/features/shared/photoLibraryPermission";
+import { ActivityIndicator, Alert, AppState, Image, Linking, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
 import { authApi } from "@/api/services";
 import { getErrorMessage } from "@/api/client";
@@ -12,6 +15,8 @@ import { useAuth } from "@/providers/AuthProvider";
 import { enablePushNotifications } from "@/features/notifications/notifications";
 
 type PasswordField = "confirmPassword" | "currentPassword" | "newPassword";
+type PermissionKey = "camera" | "contacts" | "notifications" | "photos";
+type PermissionState = { canAskAgain: boolean; granted: boolean; label: string };
 type ProfileForm = {
   bio: string;
   email: string;
@@ -21,6 +26,7 @@ type ProfileForm = {
 };
 
 const emptyProfile: ProfileForm = { bio: "", email: "", firstName: "", lastName: "", username: "" };
+const checkingPermission: PermissionState = { canAskAgain: true, granted: false, label: "Checking" };
 
 function initials(firstName = "", lastName = "", username = "") {
   const value = `${firstName.charAt(0)}${lastName.charAt(0)}` || username.slice(0, 2);
@@ -36,6 +42,8 @@ function isValidUsername(username: string) {
 }
 
 export default function Account() {
+  const { width } = useWindowDimensions();
+  const wide = width >= 700;
   const { user, logout, refreshMe } = useAuth();
   const [profile, setProfile] = useState<ProfileForm>(emptyProfile);
   const [profileError, setProfileError] = useState("");
@@ -53,10 +61,16 @@ export default function Account() {
   const [resetError, setResetError] = useState("");
   const [resetMessage, setResetMessage] = useState("");
   const [resetSending, setResetSending] = useState(false);
-  const [expandedSection, setExpandedSection] = useState<"notifications" | "profile" | "security" | "session" | null>("profile");
-  const [notificationError, setNotificationError] = useState("");
-  const [notificationMessage, setNotificationMessage] = useState("");
-  const [notificationSaving, setNotificationSaving] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<"permissions" | "profile" | "security" | "session" | null>("profile");
+  const [permissionBusy, setPermissionBusy] = useState<PermissionKey | null>(null);
+  const [permissionError, setPermissionError] = useState("");
+  const [permissionMessage, setPermissionMessage] = useState("");
+  const [permissions, setPermissions] = useState<Record<PermissionKey, PermissionState>>({
+    camera: checkingPermission,
+    contacts: checkingPermission,
+    notifications: checkingPermission,
+    photos: checkingPermission
+  });
   const [visiblePasswords, setVisiblePasswords] = useState<Record<PasswordField, boolean>>({
     confirmPassword: false,
     currentPassword: false,
@@ -73,6 +87,34 @@ export default function Account() {
     });
     setResetEmail(user?.email || "");
   }, [user]);
+
+  const refreshPermissions = useCallback(async () => {
+    const [camera, contacts, notifications, photos] = await Promise.all([
+      ImagePicker.getCameraPermissionsAsync(),
+      Contacts.getPermissionsAsync(),
+      Notifications.getPermissionsAsync(),
+      Platform.OS === "android" || Platform.OS === "web" ? null : ImagePicker.getMediaLibraryPermissionsAsync()
+    ]);
+    const permissionState = (response: { canAskAgain: boolean; granted: boolean }): PermissionState => ({
+      canAskAgain: response.canAskAgain,
+      granted: response.granted,
+      label: response.granted ? "Allowed" : "Not allowed"
+    });
+    setPermissions({
+      camera: permissionState(camera),
+      contacts: permissionState(contacts),
+      notifications: permissionState(notifications),
+      photos: photos ? permissionState(photos) : { canAskAgain: false, granted: true, label: "System picker" }
+    });
+  }, []);
+
+  useEffect(() => {
+    void refreshPermissions();
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshPermissions();
+    });
+    return () => subscription.remove();
+  }, [refreshPermissions]);
 
   const avatarUri = user?.avatar_url || user?.profile_photo_url || "";
   const displayedAvatarUri = avatarUri ? `${avatarUri}${avatarUri.includes("?") ? "&" : "?"}v=${avatarVersion}` : "";
@@ -130,8 +172,7 @@ export default function Account() {
   async function pickAvatar() {
     setProfileError("");
     setProfileMessage("");
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
+    if (!await canChooseFromPhotoLibrary()) {
       setProfileError("Photo library permission is required to change your avatar.");
       return;
     }
@@ -211,17 +252,25 @@ export default function Account() {
     router.replace("/auth/login");
   }
 
-  async function turnOnNotifications() {
-    setNotificationError("");
-    setNotificationMessage("");
-    setNotificationSaving(true);
+  async function requestAppPermission(key: PermissionKey) {
+    setPermissionError("");
+    setPermissionMessage("");
+    if (!permissions[key].canAskAgain && !permissions[key].granted) {
+      await Linking.openSettings();
+      return;
+    }
+    setPermissionBusy(key);
     try {
-      await enablePushNotifications();
-      setNotificationMessage("Notifications are enabled for this device.");
+      if (key === "camera") await ImagePicker.requestCameraPermissionsAsync();
+      if (key === "contacts") await Contacts.requestPermissionsAsync();
+      if (key === "notifications") await enablePushNotifications();
+      if (key === "photos" && Platform.OS !== "android" && Platform.OS !== "web") await ImagePicker.requestMediaLibraryPermissionsAsync();
+      await refreshPermissions();
+      setPermissionMessage("Permission settings updated.");
     } catch (err) {
-      setNotificationError(getErrorMessage(err, "Could not enable notifications."));
+      setPermissionError(getErrorMessage(err, "Could not update this permission."));
     } finally {
-      setNotificationSaving(false);
+      setPermissionBusy(null);
     }
   }
 
@@ -234,6 +283,7 @@ export default function Account() {
 
   return (
     <Screen>
+      <View style={styles.accountShell}>
       <View style={styles.pageHeading}>
         <Text style={styles.pageEyebrow}>Settings</Text>
         <Text style={styles.pageTitle}>Your account</Text>
@@ -262,8 +312,10 @@ export default function Account() {
         <View style={styles.card}>
           <LabeledInput label="Username" onChangeText={(value) => updateProfileField("username", value)} placeholder="Your username" value={profile.username} autoCapitalize="none" />
           <Text style={styles.fieldHint}>3–100 letters, numbers, dots, dashes, or underscores.</Text>
-          <LabeledInput label="First name" onChangeText={(value) => updateProfileField("firstName", value)} placeholder="First name" value={profile.firstName} />
-          <LabeledInput label="Last name" onChangeText={(value) => updateProfileField("lastName", value)} placeholder="Last name" value={profile.lastName} />
+          <View style={wide ? styles.formRow : undefined}>
+            <LabeledInput label="First name" onChangeText={(value) => updateProfileField("firstName", value)} placeholder="First name" value={profile.firstName} wrapperStyle={wide ? styles.formColumn : undefined} />
+            <LabeledInput label="Last name" onChangeText={(value) => updateProfileField("lastName", value)} placeholder="Last name" value={profile.lastName} wrapperStyle={wide ? styles.formColumn : undefined} />
+          </View>
           <LabeledInput label="Email address" onChangeText={(value) => updateProfileField("email", value)} placeholder="name@example.com" value={profile.email} autoCapitalize="none" keyboardType="email-address" />
           <LabeledInput label="About you" onChangeText={(value) => updateProfileField("bio", value)} placeholder="A short introduction (optional)" value={profile.bio} maxLength={500} multiline />
           <Text style={styles.fieldHint}>{profile.bio.trim().length}/500 characters</Text>
@@ -290,16 +342,17 @@ export default function Account() {
         </View>
       </AccountSection>
 
-      <AccountSection active={expandedSection === "notifications"} icon="notifications-outline" onPress={() => toggleSection("notifications")} subtitle="Private alerts on this device" title="Notifications">
+      <AccountSection active={expandedSection === "permissions"} icon="options-outline" onPress={() => toggleSection("permissions")} subtitle="Camera, photos, contacts, and alerts" title="App permissions">
         <View style={styles.card}>
-          <Text style={styles.subTitle}>Stay informed</Text>
-          <Text style={styles.helpText}>Receive useful updates without exposing sensitive account information.</Text>
-          <SettingDetail icon="cash-outline" text="Loan and repayment updates" />
-          <SettingDetail icon="wallet-outline" text="Savings and payment activity" />
-          <SettingDetail icon="shield-checkmark-outline" text="Important account-security changes" />
-          <View style={styles.privacyNote}><Ionicons name="eye-off-outline" color={colors.muted} size={18} /><Text style={styles.privacyText}>Sensitive details stay hidden from notification previews.</Text></View>
-          <Feedback error={notificationError} message={notificationMessage} />
-          <PrimaryButton icon="notifications-outline" loading={notificationSaving} onPress={turnOnNotifications} text="Enable notifications" />
+          <View style={styles.permissionIntro}><Ionicons name="shield-checkmark-outline" color={colors.primaryDark} size={20} /><Text style={styles.permissionIntroText}>You stay in control. Permissions are requested only when a feature needs them.</Text></View>
+          <View style={styles.permissionGrid}>
+            <PermissionCard icon="camera-outline" loading={permissionBusy === "camera"} onPress={() => requestAppPermission("camera")} state={permissions.camera} title="Camera" />
+            <PermissionCard icon="images-outline" loading={permissionBusy === "photos"} onPress={() => requestAppPermission("photos")} state={permissions.photos} title="Photos" />
+            <PermissionCard icon="people-outline" loading={permissionBusy === "contacts"} onPress={() => requestAppPermission("contacts")} state={permissions.contacts} title="Contacts" />
+            <PermissionCard icon="notifications-outline" loading={permissionBusy === "notifications"} onPress={() => requestAppPermission("notifications")} state={permissions.notifications} title="Notifications" />
+          </View>
+          <Feedback error={permissionError} message={permissionMessage} />
+          <Pressable accessibilityRole="button" onPress={() => Linking.openSettings()} style={({ pressed }) => [styles.settingsButton, pressed && styles.pressed]}><Ionicons name="settings-outline" color={colors.primaryDark} size={18} /><Text style={styles.settingsButtonText}>Open device settings</Text></Pressable>
         </View>
       </AccountSection>
 
@@ -317,6 +370,7 @@ export default function Account() {
           </Pressable>
         </View>
       </AccountSection>
+      </View>
     </Screen>
   );
 }
@@ -386,8 +440,20 @@ function Feedback({ error, message }: { error: string; message: string }) {
   return null;
 }
 
-function SettingDetail({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }) {
-  return <View style={styles.settingDetail}><View style={styles.settingDetailIcon}><Ionicons name={icon} color={colors.primaryDark} size={18} /></View><Text style={styles.settingDetailText}>{text}</Text><Ionicons name="checkmark" color={colors.success} size={18} /></View>;
+function PermissionCard({ icon, loading, onPress, state, title }: { icon: React.ComponentProps<typeof Ionicons>["name"]; loading: boolean; onPress: () => void; state: PermissionState; title: string }) {
+  const action = state.granted ? "Enabled" : state.canAskAgain ? "Allow" : "Settings";
+  return (
+    <View style={styles.permissionCard}>
+      <View style={styles.permissionCardHeader}>
+        <View style={[styles.permissionIcon, state.granted && styles.permissionIconActive]}><Ionicons name={icon} color={state.granted ? colors.success : colors.primaryDark} size={20} /></View>
+        <View style={[styles.permissionBadge, state.granted && styles.permissionBadgeActive]}><View style={[styles.permissionDot, state.granted && styles.permissionDotActive]} /><Text numberOfLines={1} style={[styles.permissionStatus, state.granted && styles.permissionStatusActive]}>{state.label}</Text></View>
+      </View>
+      <Text style={styles.permissionTitle}>{title}</Text>
+      <Pressable accessibilityLabel={`${action} ${title}`} accessibilityRole="button" disabled={loading || state.granted} onPress={onPress} style={({ pressed }) => [styles.permissionAction, state.granted && styles.permissionActionActive, pressed && styles.pressed]}>
+        {loading ? <ActivityIndicator color={colors.primaryDark} size="small" /> : <Text style={[styles.permissionActionText, state.granted && styles.permissionActionTextActive]}>{action}</Text>}
+      </Pressable>
+    </View>
+  );
 }
 
 function PrimaryButton({ icon, loading, onPress, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; loading: boolean; onPress: () => void; text: string }) {
@@ -409,11 +475,12 @@ function SecondaryButton({ icon, loading, onPress, text }: { icon: React.Compone
 }
 
 const styles = StyleSheet.create({
+  accountShell: { alignSelf: "center", maxWidth: 840, width: "100%" },
   activeDot: { backgroundColor: colors.success, borderColor: "#dcfce7", borderRadius: 999, borderWidth: 4, height: 16, width: 16 },
   avatar: { borderRadius: 40, height: 80, width: 80 },
   avatarButton: { alignItems: "center", backgroundColor: colors.primary, borderColor: "white", borderRadius: 18, borderWidth: 2, bottom: -2, height: 36, justifyContent: "center", position: "absolute", right: -2, width: 36 },
   avatarText: { color: colors.primaryDark, fontSize: 23, fontWeight: "900" },
-  avatarWrap: { alignItems: "center", backgroundColor: colors.primarySoft, borderColor: "white", borderRadius: 42, borderWidth: 3, height: 84, justifyContent: "center", width: 84 },
+  avatarWrap: { alignItems: "center", backgroundColor: "white", borderColor: "rgba(255,255,255,0.5)", borderRadius: 42, borderWidth: 3, height: 84, justifyContent: "center", width: 84 },
   badges: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   card: { padding: spacing.lg },
   chevron: { alignItems: "center", backgroundColor: "#f8fafc", borderRadius: 999, height: 32, justifyContent: "center", width: 32 },
@@ -429,22 +496,42 @@ const styles = StyleSheet.create({
   feedback: { alignItems: "flex-start", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md, padding: spacing.md },
   feedbackText: { flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 19 },
   fieldHint: { color: colors.muted, fontSize: 12, lineHeight: 18, marginBottom: spacing.md, marginTop: -spacing.sm, textAlign: "right" },
+  formColumn: { flex: 1 },
+  formRow: { flexDirection: "row", gap: spacing.md },
   groupLabel: { color: colors.muted, fontSize: 11, fontWeight: "900", letterSpacing: 0.7, marginBottom: spacing.sm, marginLeft: spacing.xs, textTransform: "uppercase" },
   helpText: { color: colors.muted, lineHeight: 20, marginBottom: spacing.md },
-  hero: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, flexDirection: "row", gap: spacing.lg, marginBottom: spacing.xl, padding: spacing.lg, shadowColor: "#0f172a", shadowOpacity: 0.06, shadowRadius: 14 },
+  hero: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: radius.lg, flexDirection: "row", gap: spacing.lg, marginBottom: spacing.xl, overflow: "hidden", padding: spacing.lg, shadowColor: "#064e3b", shadowOffset: { height: 5, width: 0 }, shadowOpacity: 0.2, shadowRadius: 14 },
   heroCopy: { flex: 1, minWidth: 0 },
   iconButton: { alignItems: "center", height: 50, justifyContent: "center", width: 50 },
   input: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, fontSize: 16, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   inputGroup: { marginBottom: spacing.md },
   label: { color: colors.text, fontSize: 13, fontWeight: "800", marginBottom: spacing.xs },
-  muted: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
-  name: { color: colors.text, fontSize: 21, fontWeight: "900" },
+  muted: { color: "rgba(255,255,255,0.76)", lineHeight: 20, marginTop: spacing.xs },
+  name: { color: "white", fontSize: 22, fontWeight: "900" },
   pageEyebrow: { color: colors.primaryDark, fontSize: 11, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
   pageHeading: { marginBottom: spacing.lg, marginTop: spacing.sm },
   pageSubtitle: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
   pageTitle: { color: colors.text, fontSize: 27, fontWeight: "900", marginTop: spacing.xs },
   passwordInput: { color: colors.text, flex: 1, fontSize: 16, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   passwordRow: { alignItems: "center", backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: "row" },
+  permissionAction: { alignItems: "center", alignSelf: "stretch", backgroundColor: colors.primaryDark, borderRadius: radius.md, justifyContent: "center", minHeight: 36, paddingHorizontal: spacing.sm },
+  permissionActionActive: { backgroundColor: "#dcfce7" },
+  permissionActionText: { color: "white", fontSize: 11, fontWeight: "900" },
+  permissionActionTextActive: { color: colors.success },
+  permissionBadge: { alignItems: "center", backgroundColor: "#f1f5f9", borderRadius: 999, flexDirection: "row", gap: 5, maxWidth: "65%", paddingHorizontal: 7, paddingVertical: 5 },
+  permissionBadgeActive: { backgroundColor: "#dcfce7" },
+  permissionCard: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexBasis: "47%", flexGrow: 1, justifyContent: "space-between", minHeight: 142, minWidth: 0, padding: spacing.md },
+  permissionCardHeader: { alignItems: "flex-start", flexDirection: "row", justifyContent: "space-between" },
+  permissionDot: { backgroundColor: colors.muted, borderRadius: 4, height: 6, width: 6 },
+  permissionDotActive: { backgroundColor: colors.success },
+  permissionGrid: { columnGap: spacing.sm, flexDirection: "row", flexWrap: "wrap", marginBottom: spacing.md, rowGap: spacing.sm },
+  permissionIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 12, height: 38, justifyContent: "center", width: 38 },
+  permissionIconActive: { backgroundColor: "#dcfce7" },
+  permissionIntro: { alignItems: "flex-start", backgroundColor: colors.primarySoft, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md, padding: spacing.md },
+  permissionIntroText: { color: colors.primaryDark, flex: 1, fontSize: 12, fontWeight: "700", lineHeight: 18 },
+  permissionStatus: { color: colors.muted, flexShrink: 1, fontSize: 9, fontWeight: "800" },
+  permissionStatusActive: { color: colors.success },
+  permissionTitle: { color: colors.text, fontSize: 15, fontWeight: "900", marginVertical: spacing.sm },
   pressed: { opacity: 0.74 },
   primaryButton: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, justifyContent: "center", minHeight: 50, paddingHorizontal: spacing.lg },
   primaryButtonText: { color: "white", fontSize: 15, fontWeight: "900" },
@@ -469,6 +556,8 @@ const styles = StyleSheet.create({
   settingDetailText: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "700" },
   signOutButton: { alignItems: "center", alignSelf: "stretch", backgroundColor: "#fef2f2", borderColor: "#fecaca", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, justifyContent: "center", minHeight: 50, paddingHorizontal: spacing.lg },
   signOutText: { color: colors.danger, fontWeight: "900" },
+  settingsButton: { alignItems: "center", alignSelf: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "center", paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  settingsButtonText: { color: colors.primaryDark, fontSize: 12, fontWeight: "900" },
   subTitle: { color: colors.text, fontSize: 17, fontWeight: "900", marginBottom: spacing.xs },
   success: { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" },
   successText: { color: colors.success },

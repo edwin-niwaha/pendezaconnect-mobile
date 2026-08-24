@@ -8,9 +8,9 @@ export async function listSponsors(search = "") {
   return listOf(response.data);
 }
 
-export async function listSponsorsPage({ page = 1, search = "" }: { page?: number; search?: string }) {
+export async function listSponsorsPage({ page = 1, search = "", category = "all" }: { page?: number; search?: string; category?: string }) {
   const response = await api.get<Sponsor[] | Paginated<Sponsor>>("/sponsors/", {
-    params: { ...(search ? { search } : {}), page, page_size: 10 }
+    params: { ...(search ? { search } : {}), ...(category !== "all" ? { category } : {}), page, page_size: 10 }
   });
   return paginatedOf(response.data, page, 10);
 }

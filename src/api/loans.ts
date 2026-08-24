@@ -8,9 +8,9 @@ export async function listLoans(search = "") {
   return listOf(response.data);
 }
 
-export async function listLoansPage({ page = 1, search = "" }: { page?: number; search?: string }) {
+export async function listLoansPage({ page = 1, search = "", statuses = [] }: { page?: number; search?: string; statuses?: string[] }) {
   const response = await api.get<Loan[] | Paginated<Loan>>("/loans/", {
-    params: { ...(search ? { search } : {}), page, page_size: 10 }
+    params: { ...(search ? { search } : {}), ...(statuses.length ? { status: statuses.join(",") } : {}), page, page_size: 10 }
   });
   return paginatedOf(response.data, page, 10);
 }

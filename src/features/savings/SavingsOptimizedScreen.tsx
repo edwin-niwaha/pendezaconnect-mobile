@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { getErrorMessage } from "@/api/client";
 import { initiateMobileMoneyDeposit, submitSavingsRequest } from "@/api/savings";
 import { AmountRow, FeatureCard, SectionHeader, StatusBadge } from "@/components/Polished";
@@ -12,6 +13,12 @@ import { useAuth } from "@/providers/AuthProvider";
 
 const RECENT_TRANSACTION_LIMIT = 5;
 const ACCOUNT_LIMIT = 5;
+const transactionFilters = [
+  { label: "All", value: "all" },
+  { label: "Deposits", value: "deposit" },
+  { label: "Withdrawals", value: "withdrawal" },
+  { label: "Pending", value: "pending" }
+] as const;
 
 export function SavingsOptimizedScreen() {
   const { user } = useAuth();
@@ -24,15 +31,20 @@ export function SavingsOptimizedScreen() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [accountsExpanded, setAccountsExpanded] = useState(false);
+  const [transactionsExpanded, setTransactionsExpanded] = useState(false);
+  const [transactionFilter, setTransactionFilter] = useState("all");
   if (loading && !data) return <LoadingState />;
 
   const accounts = data?.accounts ?? [];
   const transactions = data?.transactions ?? [];
   const totalBalance = accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0);
-  const visibleAccounts = accounts.slice(0, ACCOUNT_LIMIT);
-  const visibleTransactions = transactions.slice(0, RECENT_TRANSACTION_LIMIT);
-  const deposits = transactions.filter((item) => item.transaction_type === "deposit").reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const withdrawals = transactions.filter((item) => item.transaction_type === "withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const visibleAccounts = accountsExpanded ? accounts : accounts.slice(0, ACCOUNT_LIMIT);
+  const approvedTransactions = transactions.filter((item) => ["approved", "completed", "posted"].includes(item.status));
+  const deposits = approvedTransactions.filter((item) => item.transaction_type === "deposit").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const withdrawals = approvedTransactions.filter((item) => item.transaction_type === "withdrawal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const filteredTransactions = transactions.filter((item) => transactionFilter === "all" || (transactionFilter === "pending" ? item.status === "pending" : item.transaction_type === transactionFilter));
+  const visibleTransactions = transactionsExpanded ? filteredTransactions : filteredTransactions.slice(0, RECENT_TRANSACTION_LIMIT);
   const isClient = user?.account_type === "client" && Boolean(user.client_id);
   const amountNumber = Number(amount);
   const fee = requestType === "momo" && amountNumber > 0 ? amountNumber * 0.02 : 0;
@@ -88,9 +100,9 @@ export function SavingsOptimizedScreen() {
       {isClient && accounts.length ? <>
         <SectionHeader title="Manage savings" subtitle="Deposit into your account or request a withdrawal." />
         <View style={styles.actionRow}>
-          <ActionButton active={requestType === "momo"} label="MoMo deposit" onPress={() => chooseType("momo")} />
-          <ActionButton active={requestType === "deposit"} label="Direct deposit" onPress={() => chooseType("deposit")} />
-          <ActionButton active={requestType === "withdrawal"} label="Withdraw" onPress={() => chooseType("withdrawal")} />
+          <ActionButton active={requestType === "momo"} icon="phone-portrait-outline" label="MoMo deposit" onPress={() => chooseType("momo")} />
+          <ActionButton active={requestType === "deposit"} icon="add-circle-outline" label="Direct deposit" onPress={() => chooseType("deposit")} />
+          <ActionButton active={requestType === "withdrawal"} icon="arrow-up-circle-outline" label="Withdraw" onPress={() => chooseType("withdrawal")} />
         </View>
         {requestType ? <View style={styles.formCard}>
           <Text style={styles.formTitle}>{requestType === "momo" ? "Make a Mobile Money deposit" : requestType === "deposit" ? "Submit direct deposit" : "Request a withdrawal"}</Text>
@@ -109,31 +121,42 @@ export function SavingsOptimizedScreen() {
       {visibleAccounts.length ? visibleAccounts.map((account) => (
         <View key={account.id} style={styles.card}>
           <View style={styles.rowTop}>
-            <Text style={styles.cardTitle}>{account.client_name}</Text>
+            <View style={styles.cardIdentity}><View style={styles.accountIcon}><Ionicons color={colors.primaryDark} name="wallet-outline" size={18} /></View><View style={styles.cardCopy}><Text numberOfLines={1} style={styles.cardTitle}>{account.client_name}</Text><Text style={styles.accountNumber}>{account.account_number || "Savings account"}</Text></View></View>
             <StatusBadge tone={account.status === "active" ? "success" : "neutral"} text={account.status || "account"} />
           </View>
-          <AmountRow label={account.account_number || "Account"} value={formatCurrency(account.balance)} tone="success" />
+          <AmountRow label="Available balance" value={formatCurrency(account.balance)} tone="success" />
           {account.opening_date ? <Text style={styles.muted}>Opened {formatDate(account.opening_date)}</Text> : null}
         </View>
       )) : <ResourceEmpty text="No savings accounts available for your account." />}
+      {accounts.length > ACCOUNT_LIMIT ? <ExpandButton expanded={accountsExpanded} hiddenCount={accounts.length - ACCOUNT_LIMIT} onPress={() => setAccountsExpanded((value) => !value)} /> : null}
 
-      <SectionHeader title="Recent transactions" subtitle="Only the latest transactions appear here." />
+      <View style={styles.activityHeading}><SectionHeader title="Recent transactions" /><Text style={styles.activityCount}>{filteredTransactions.length} record{filteredTransactions.length === 1 ? "" : "s"}</Text></View>
+      <ScrollView contentContainerStyle={styles.filterRow} horizontal showsHorizontalScrollIndicator={false}>
+        {transactionFilters.map((filter) => {
+          const active = transactionFilter === filter.value;
+          return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} key={filter.value} onPress={() => { setTransactionFilter(filter.value); setTransactionsExpanded(false); }} style={[styles.filterChip, active && styles.filterChipActive]}><Text style={[styles.filterText, active && styles.filterTextActive]}>{filter.label}</Text></Pressable>;
+        })}
+      </ScrollView>
       {visibleTransactions.length ? visibleTransactions.map((item) => (
-        <View key={item.id} style={styles.card}>
+        <View key={item.id} style={styles.transactionCard}>
           <View style={styles.rowTop}>
-            <Text style={styles.cardTitle}>{formatLabel(item.transaction_type)}</Text>
-            <StatusBadge tone={item.status === "completed" ? "success" : "info"} text={item.status || "posted"} />
+            <View style={styles.cardIdentity}><View style={[styles.transactionIcon, item.transaction_type === "withdrawal" && styles.withdrawalIcon]}><Ionicons color={item.transaction_type === "withdrawal" ? colors.danger : colors.success} name={item.transaction_type === "withdrawal" ? "arrow-up" : "arrow-down"} size={17} /></View><View style={styles.cardCopy}><Text style={styles.transactionTitle}>{formatLabel(item.transaction_type)}</Text><Text style={styles.transactionDate}>{formatDate(item.transaction_date)} · {formatLabel(item.payment_method || "method not recorded")}</Text></View></View>
+            <Text style={[styles.transactionAmount, item.transaction_type === "withdrawal" && styles.withdrawalAmount]}>{item.transaction_type === "withdrawal" ? "−" : "+"}{formatCurrency(item.amount)}</Text>
           </View>
-          <AmountRow label={formatDate(item.transaction_date)} value={formatCurrency(item.amount)} tone={item.transaction_type === "withdrawal" ? "danger" : "success"} />
-          <Text style={styles.muted}>{item.client_name} - {item.payment_method || "Method not recorded"}</Text>
+          <View style={styles.transactionFooter}><Text numberOfLines={1} style={styles.clientName}>{item.client_name}</Text><StatusBadge tone={["approved", "completed", "posted"].includes(item.status) ? "success" : item.status === "rejected" ? "danger" : "warning"} text={item.status || "posted"} /></View>
         </View>
-      )) : <ResourceEmpty text="No recent savings transactions found." />}
+      )) : <ResourceEmpty text={transactionFilter === "all" ? "No recent savings transactions found." : "No transactions match this filter."} />}
+      {filteredTransactions.length > RECENT_TRANSACTION_LIMIT ? <ExpandButton expanded={transactionsExpanded} hiddenCount={filteredTransactions.length - RECENT_TRANSACTION_LIMIT} onPress={() => setTransactionsExpanded((value) => !value)} /> : null}
     </Screen>
   );
 }
 
-function ActionButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={[styles.action, active && styles.actionActive]}><Text style={[styles.actionText, active && styles.actionTextActive]}>{label}</Text></Pressable>;
+function ActionButton({ active, icon, label, onPress }: { active: boolean; icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" onPress={onPress} style={[styles.action, active && styles.actionActive]}><Ionicons color={active ? "white" : colors.primaryDark} name={icon} size={19} /><Text style={[styles.actionText, active && styles.actionTextActive]}>{label}</Text></Pressable>;
+}
+
+function ExpandButton({ expanded, hiddenCount, onPress }: { expanded: boolean; hiddenCount: number; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={onPress} style={styles.expandButton}><Text style={styles.expandText}>{expanded ? "Show less" : `Show all (${hiddenCount} more)`}</Text><Ionicons color={colors.primaryDark} name={expanded ? "chevron-up" : "chevron-down"} size={18} /></Pressable>;
 }
 
 function FormField({ label, multiline, ...props }: { label: string; multiline?: boolean; keyboardType?: "decimal-pad" | "phone-pad"; onChangeText: (value: string) => void; placeholder: string; value: string }) {
@@ -141,20 +164,34 @@ function FormField({ label, multiline, ...props }: { label: string; multiline?: 
 }
 
 const styles = StyleSheet.create({
-  action: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 48, paddingHorizontal: spacing.xs },
+  accountIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 18, height: 36, justifyContent: "center", width: 36 },
+  accountNumber: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  action: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flex: 1, gap: spacing.xs, justifyContent: "center", minHeight: 60, minWidth: 0, paddingHorizontal: spacing.xs },
   actionActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
   actionRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   actionText: { color: colors.text, fontSize: 12, fontWeight: "800", textAlign: "center" },
   actionTextActive: { color: "white" },
+  activityCount: { color: colors.muted, fontSize: 11, fontWeight: "800" },
+  activityHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   breakdown: { color: colors.primaryDark, fontSize: 12, fontWeight: "700", marginTop: spacing.sm },
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.md, padding: spacing.lg },
+  cardCopy: { flex: 1, minWidth: 0 },
+  cardIdentity: { alignItems: "center", flex: 1, flexDirection: "row", gap: spacing.sm, minWidth: 0 },
   cardTitle: { color: colors.text, flex: 1, fontSize: 17, fontWeight: "900" },
+  clientName: { color: colors.muted, flex: 1, fontSize: 11 },
   disabled: { opacity: 0.65 },
   error: { color: colors.danger, marginTop: spacing.md },
+  expandButton: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, justifyContent: "center", marginBottom: spacing.lg, minHeight: 42, paddingHorizontal: spacing.md },
+  expandText: { color: colors.primaryDark, fontSize: 13, fontWeight: "900" },
   field: { marginTop: spacing.md },
   fieldLabel: { color: colors.text, fontSize: 13, fontWeight: "800", marginBottom: spacing.xs, marginTop: spacing.md },
   formCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.lg, padding: spacing.lg },
   formTitle: { color: colors.text, fontSize: 18, fontWeight: "900" },
+  filterChip: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, justifyContent: "center", minHeight: 36, paddingHorizontal: spacing.md },
+  filterChipActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  filterRow: { gap: spacing.sm, marginBottom: spacing.md, paddingRight: spacing.lg },
+  filterText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
+  filterTextActive: { color: "white" },
   input: { backgroundColor: colors.background, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, minHeight: 48, paddingHorizontal: spacing.md },
   method: { borderColor: colors.border, borderRadius: radius.sm, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
   methodActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
@@ -168,5 +205,13 @@ const styles = StyleSheet.create({
   rowTop: { alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" },
   submit: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: radius.md, justifyContent: "center", marginTop: spacing.lg, minHeight: 50 },
   submitText: { color: "white", fontWeight: "900" },
-  textarea: { minHeight: 90, paddingTop: spacing.md, textAlignVertical: "top" }
+  textarea: { minHeight: 90, paddingTop: spacing.md, textAlignVertical: "top" },
+  transactionAmount: { color: colors.success, fontSize: 14, fontWeight: "900", marginLeft: spacing.sm },
+  transactionCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.md, padding: spacing.md },
+  transactionDate: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  transactionFooter: { alignItems: "center", borderTopColor: colors.border, borderTopWidth: 1, flexDirection: "row", gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.sm },
+  transactionIcon: { alignItems: "center", backgroundColor: "#ecfdf5", borderRadius: 18, height: 36, justifyContent: "center", width: 36 },
+  transactionTitle: { color: colors.text, fontSize: 14, fontWeight: "900" },
+  withdrawalAmount: { color: colors.danger },
+  withdrawalIcon: { backgroundColor: "#fef2f2" }
 });

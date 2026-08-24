@@ -30,14 +30,6 @@
           }
         },
         {
-          "client_id": "887994843584-pegg9ggevt4iq1vfi4nv2nanl5hhjhs6.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "org.pendeza.connect",
-            "certificate_hash": "4c96074bf8bfe7a99ff976d49551c747d5e30580"
-          }
-        },
-        {
           "client_id": "887994843584-gep9350oqbd24t4gra62dbffua7fa032.apps.googleusercontent.com",
           "client_type": 3
         }

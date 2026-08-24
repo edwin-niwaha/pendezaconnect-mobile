@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { getErrorMessage } from "@/api/client";
 import { getChild } from "@/api/children";
-import { FeatureCard, SectionHeader, StatusBadge } from "@/components/Polished";
+import { SectionHeader, StatusBadge } from "@/components/Polished";
 import { EmptyState, LoadingState, Screen } from "@/components/Screen";
 import { colors, radius, spacing } from "@/constants/theme";
 import { ResourceError } from "@/features/shared/ResourceStates";
 import type { Child } from "@/types";
-import { joinMeta } from "@/utils/format";
+import { formatDate, joinMeta } from "@/utils/format";
+
+function InfoTile({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  return <View style={styles.infoTile}><Ionicons color={colors.primaryDark} name={icon} size={18} /><Text style={styles.infoLabel}>{label}</Text><Text numberOfLines={2} style={styles.infoValue}>{value}</Text></View>;
+}
 
 export function ChildDetailScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
@@ -64,21 +68,24 @@ export function ChildDetailScreen() {
             </View>
           </View>
 
-          <FeatureCard
-            accent={colors.primaryDark}
-            icon="camera"
-            subtitle="Child profile information and current photo visibility."
-            title="Profile"
-            meta={joinMeta([child.district, child.residence])}
-          />
-
-          <SectionHeader title="Location" subtitle="Residence details recorded for this child." />
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>District</Text>
-            <Text style={styles.muted}>{child.district || "No district recorded"}</Text>
-            <Text style={styles.cardTitle}>Residence</Text>
-            <Text style={styles.muted}>{child.residence || "No residence recorded"}</Text>
+          <SectionHeader title="Child information" />
+          <View style={styles.infoGrid}>
+            <InfoTile icon="calendar-outline" label="Date of birth" value={child.date_of_birth ? formatDate(child.date_of_birth) : "Not recorded"} />
+            <InfoTile icon="school-outline" label="Education" value={child.is_child_in_school ? "Attending school" : "Not in school"} />
+            <InfoTile icon="location-outline" label="District" value={child.district || "Not recorded"} />
+            <InfoTile icon="home-outline" label="Residence" value={child.residence || "Not recorded"} />
+            <InfoTile icon="sparkles-outline" label="Aspiration" value={child.aspiration || "Not recorded"} />
+            <InfoTile icon="fitness-outline" label="Health" value={child.health_status || "Not recorded"} />
           </View>
+
+          <SectionHeader title="Guardian" />
+          <View style={styles.guardianCard}>
+            <View style={styles.guardianIcon}><Ionicons color={colors.primaryDark} name="people-outline" size={22} /></View>
+            <View style={styles.guardianCopy}><Text style={styles.guardianName}>{child.guardian || "No guardian recorded"}</Text><Text style={styles.muted}>{child.relationship_with_guardian || "Relationship not recorded"}</Text></View>
+            {child.guardian_contact ? <Pressable accessibilityLabel="Call guardian" onPress={() => void Linking.openURL(`tel:${child.guardian_contact}`)} style={styles.callButton}><Ionicons color="white" name="call" size={18} /></Pressable> : null}
+          </View>
+
+          {child.c_interest ? <><SectionHeader title="Interests and abilities" /><View style={styles.noteCard}><Text style={styles.noteText}>{child.c_interest}</Text></View></> : null}
         </>
       ) : (
         <EmptyState text="Child details are unavailable." />
@@ -91,10 +98,19 @@ const styles = StyleSheet.create({
   avatar: { borderRadius: 36, height: 72, width: 72 },
   avatarFallback: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 36, height: 72, justifyContent: "center", width: 72 },
   badges: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
-  card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.xs, marginBottom: spacing.md, padding: spacing.lg },
-  cardTitle: { color: colors.text, fontSize: 14, fontWeight: "900", marginTop: spacing.sm },
+  callButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: 20, height: 40, justifyContent: "center", width: 40 },
+  guardianCard: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, flexDirection: "row", gap: spacing.md, marginBottom: spacing.lg, padding: spacing.md },
+  guardianCopy: { flex: 1 },
+  guardianIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 22, height: 44, justifyContent: "center", width: 44 },
+  guardianName: { color: colors.text, fontSize: 15, fontWeight: "900" },
+  infoGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginBottom: spacing.lg },
+  infoLabel: { color: colors.muted, fontSize: 9, fontWeight: "800", marginTop: spacing.sm, textTransform: "uppercase" },
+  infoTile: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexBasis: "47%", flexGrow: 1, minWidth: 130, padding: spacing.md },
+  infoValue: { color: colors.text, fontSize: 13, fontWeight: "900", lineHeight: 18, marginTop: 3 },
   muted: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
   name: { color: colors.text, fontSize: 22, fontWeight: "900" },
+  noteCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.lg, padding: spacing.lg },
+  noteText: { color: colors.text, lineHeight: 21 },
   profileCard: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.md, marginBottom: spacing.lg, padding: spacing.lg },
   profileCopy: { flex: 1 }
 });

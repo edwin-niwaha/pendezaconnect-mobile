@@ -15,6 +15,7 @@ export function usePaginatedResource<T>(loader: Loader<T>, enabled = true) {
   const [error, setError] = useState("");
   const [loadMoreError, setLoadMoreError] = useState("");
   const requestId = useRef(0);
+  const initialLoad = useRef(true);
 
   const loadPage = useCallback(
     async (page: number, mode: "initial" | "refresh" | "more" = "initial") => {
@@ -63,10 +64,12 @@ export function usePaginatedResource<T>(loader: Loader<T>, enabled = true) {
       setLoading(false);
       return;
     }
+    const delay = initialLoad.current ? 0 : 300;
+    initialLoad.current = false;
     const timer = setTimeout(() => {
       setNextPage(null);
       void loadPage(1, "initial");
-    }, 600);
+    }, delay);
     return () => clearTimeout(timer);
   }, [enabled, loadPage]);
 
