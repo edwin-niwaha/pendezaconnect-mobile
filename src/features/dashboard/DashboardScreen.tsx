@@ -8,7 +8,7 @@ import { colors, radius, spacing } from "@/constants/theme";
 import { ResourceError } from "@/features/shared/ResourceStates";
 import { useAuth } from "@/providers/AuthProvider";
 import { formatCurrency, formatLabel } from "@/utils/format";
-import { isGuestAccount, isStaffAccount } from "@/utils/roles";
+import { isClientAccount, isGuestAccount, isStaffAccount } from "@/utils/roles";
 import { PendingVerificationScreen } from "./PendingVerificationScreen";
 import { useDashboard } from "./useDashboard";
 
@@ -19,6 +19,7 @@ export function DashboardScreen() {
   const accountType = user?.account_type;
   const firstName = user?.first_name || user?.username || "there";
   const staff = isStaffAccount(user);
+  const canViewClientPhoto = staff || isClientAccount(user);
 
   if (guest) return <PendingVerificationScreen />;
 
@@ -44,6 +45,30 @@ export function DashboardScreen() {
       </View>
 
       <ResourceError message={error} />
+
+      {canViewClientPhoto ? (
+        <>
+          <SectionHeader title="Quick actions" subtitle={staff ? "Capture and update profile photos." : "View your verified profile photo."} />
+          <View style={styles.quickActions}>
+            <PhotoShortcut
+              accent="#0891b2"
+              icon="camera"
+              subtitle={staff ? "Capture or choose a client photo" : "Photo changes require authorized staff"}
+              title={staff ? "Upload client photo" : "View my profile photo"}
+              onPress={() => router.push("/(tabs)/client-photos")}
+            />
+            {staff ? (
+              <PhotoShortcut
+                accent="#d97706"
+                icon="images"
+                subtitle="Capture or choose a child photo"
+                title="Upload child photo"
+                onPress={() => router.push("/(tabs)/child-photos")}
+              />
+            ) : null}
+          </View>
+        </>
+      ) : null}
 
       {data ? (
         <>
@@ -75,6 +100,21 @@ export function DashboardScreen() {
         <EmptyState text="No dashboard data available." />
       )}
     </Screen>
+  );
+}
+
+function PhotoShortcut({ accent, icon, onPress, subtitle, title }: { accent: string; icon: IconName; onPress: () => void; subtitle: string; title: string }) {
+  return (
+    <Pressable accessibilityLabel={title} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}>
+      <View style={[styles.quickActionIcon, { backgroundColor: `${accent}18` }]}>
+        <Ionicons color={accent} name={icon} size={24} />
+      </View>
+      <View style={styles.quickActionCopy}>
+        <Text style={styles.quickActionTitle}>{title}</Text>
+        <Text numberOfLines={2} style={styles.quickActionSubtitle}>{subtitle}</Text>
+      </View>
+      <Ionicons color={accent} name="arrow-forward-circle" size={22} />
+    </Pressable>
   );
 }
 
@@ -124,6 +164,12 @@ const styles = StyleSheet.create({
   statLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", lineHeight: 12, marginTop: 2, textTransform: "uppercase" },
   statValue: { fontSize: 16, fontWeight: "900" },
   pressed: { opacity: 0.76 },
+  quickAction: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, flex: 1, flexDirection: "row", gap: spacing.sm, minHeight: 92, minWidth: 0, padding: spacing.md, shadowColor: "#0f172a", shadowOffset: { height: 3, width: 0 }, shadowOpacity: 0.05, shadowRadius: 10 },
+  quickActionCopy: { flex: 1, minWidth: 0 },
+  quickActionIcon: { alignItems: "center", borderRadius: 16, height: 48, justifyContent: "center", width: 48 },
+  quickActions: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
+  quickActionSubtitle: { color: colors.muted, fontSize: 10, lineHeight: 14, marginTop: 3 },
+  quickActionTitle: { color: colors.text, fontSize: 13, fontWeight: "900", lineHeight: 17 },
   summaryGrid: { columnGap: spacing.sm, flexDirection: "row", flexWrap: "wrap", rowGap: spacing.sm },
   summaryItem: { alignItems: "center", backgroundColor: "#f8fafc", borderColor: "#edf1f5", borderRadius: radius.md, borderWidth: 1, flexBasis: "47%", flexDirection: "row", flexGrow: 1, flexShrink: 1, gap: spacing.sm, minHeight: 72, minWidth: 0, paddingHorizontal: spacing.sm, paddingVertical: spacing.md }
 });

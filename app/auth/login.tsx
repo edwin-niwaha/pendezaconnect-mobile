@@ -4,7 +4,7 @@ import * as Google from "expo-auth-session/providers/google";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
-import { ActivityIndicator, Animated, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { Redirect, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getErrorMessage } from "@/api/client";
@@ -15,8 +15,8 @@ import { useAuth } from "@/providers/AuthProvider";
 WebBrowser.maybeCompleteAuthSession();
 
 const heroSlides = [
-  { image: require("../../assets/pendeza-kids.jpg"), kicker: "Education that lasts", title: "Sponsor hope. Build futures." },
-  { image: require("../../assets/pendeza-kids-2.jpg"), kicker: "Stronger families", title: "Care that changes lives." },
+  { image: require("../../assets/pendeza-kids.jpg"), kicker: "Sponsorship", title: "Sponsor hope. Build futures." },
+  { image: require("../../assets/pendeza-kids-2.jpg"), kicker: "Education that lasts", title: "Care that changes lives." },
   { image: require("../../assets/pendeza-hero.png"), kicker: "Pendeza Uganda", title: "Every child deserves a chance." }
 ] as const;
 
@@ -45,6 +45,23 @@ const googleConfigured =
       : Platform.OS === "ios"
         ? Boolean(googleIosClientId || googleExpoClientId || googleWebClientId)
         : Boolean(googleExpoClientId || googleWebClientId);
+
+function withGoogleTimeout<T>(operation: Promise<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    operation.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
 export default function Login() {
   const { height, width } = useWindowDimensions();
   const compact = height < 700;
@@ -56,7 +73,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [handledGoogleToken, setHandledGoogleToken] = useState("");
+  const handledGoogleTokenRef = useRef("");
   const redirectUri = useMemo(
     () => AuthSession.makeRedirectUri({ scheme: "pendezaconnect" }),
     []
@@ -87,13 +104,16 @@ export default function Login() {
   useEffect(() => {
     const accessToken =
       response?.type === "success" ? response.authentication?.accessToken || "" : "";
-    if (accessToken && accessToken !== handledGoogleToken && !googleLoading) {
-      setHandledGoogleToken(accessToken);
+    if (accessToken && accessToken !== handledGoogleTokenRef.current) {
+      handledGoogleTokenRef.current = accessToken;
       void handleGoogleResponse(accessToken);
+    } else if (response?.type === "success" && !accessToken) {
+      setError("Google completed sign-in but did not return an access token. Please try again.");
+      setGoogleLoading(false);
     } else if (response && response.type !== "success") {
       setGoogleLoading(false);
     }
-  }, [googleLoading, handleGoogleResponse, handledGoogleToken, response]);
+  }, [handleGoogleResponse, response]);
 
   async function startGoogleSignIn() {
     setError("");
@@ -123,30 +143,36 @@ export default function Login() {
         });
 
         if (Platform.OS === "android") {
-          await GoogleSignin.hasPlayServices({
-            showPlayServicesUpdateDialog: true
-          });
+          await withGoogleTimeout(
+            GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true }),
+            10000,
+            "Google Play Services did not respond. Please try again."
+          );
         }
 
-        // Clear only this app's cached Google session so signIn presents the
-        // account chooser. Do not revoke access, which would disconnect the app.
-        if (GoogleSignin.hasPreviousSignIn()) {
-          await GoogleSignin.signOut();
-        }
-
-        const signInResponse = await GoogleSignin.signIn();
+        const signInResponse = await withGoogleTimeout(
+          GoogleSignin.signIn(),
+          30000,
+          "Google account selection timed out. Please try again."
+        );
         if ("type" in signInResponse && signInResponse.type === "cancelled") {
           return;
         }
 
-        const tokens = await GoogleSignin.getTokens();
-        const accessToken = tokens.accessToken;
-        if (!accessToken) {
+        const tokens = await withGoogleTimeout(
+          GoogleSignin.getTokens(),
+          10000,
+          "Google did not finish creating a sign-in token. Please try again."
+        );
+        if (!tokens.accessToken) {
           setError("Google did not return an access token.");
           return;
         }
-
-        await loginWithGoogleToken(accessToken);
+        await withGoogleTimeout(
+          loginWithGoogleToken(tokens.accessToken, "access"),
+          20000,
+          "Google verification timed out. Check the server connection and try again."
+        );
         router.replace("/(tabs)");
       } catch (err) {
         const code =
@@ -270,22 +296,44 @@ export default function Login() {
 
 function HeroCarousel({ height }: { height: number }) {
   const [slide, setSlide] = useState(0);
-  const fade = useRef(new Animated.Value(1)).current;
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const transition = useRef(new Animated.Value(0)).current;
   useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+    return () => subscription.remove();
+  }, []);
+  useEffect(() => {
+    if (reduceMotion) return;
     const timer = setInterval(() => {
-      Animated.timing(fade, { duration: 220, toValue: 0, useNativeDriver: true }).start(() => {
+      transition.setValue(0);
+      Animated.timing(transition, { duration: 1100, easing: Easing.inOut(Easing.cubic), toValue: 1, useNativeDriver: true }).start(({ finished }) => {
+        if (!finished) return;
         setSlide((current) => (current + 1) % heroSlides.length);
-        Animated.timing(fade, { duration: 420, toValue: 1, useNativeDriver: true }).start();
       });
-    }, 4200);
-    return () => clearInterval(timer);
-  }, [fade]);
+    }, 9000);
+    return () => {
+      clearInterval(timer);
+      transition.stopAnimation();
+    };
+  }, [reduceMotion, transition]);
+  function selectSlide(index: number) {
+    transition.stopAnimation();
+    transition.setValue(0);
+    setSlide(index);
+  }
   const item = heroSlides[slide];
+  const nextItem = heroSlides[(slide + 1) % heroSlides.length];
+  const currentOpacity = transition.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
   return (
     <View style={[styles.hero, { height }]}>
-      <Animated.Image source={item.image} resizeMode="cover" style={[styles.heroImage, { opacity: fade }]} />
+      <Animated.Image source={item.image} resizeMode="cover" style={[styles.heroImage, { opacity: currentOpacity }]} />
+      <Animated.Image source={nextItem.image} resizeMode="cover" style={[styles.heroImage, styles.heroImageOverlay, { opacity: transition }]} />
       <View style={styles.heroShade} />
-      <View style={styles.heroCopy}><Text style={styles.heroKicker}>{item.kicker}</Text><Text style={styles.heroTitle}>{item.title}</Text><View style={styles.dots}>{heroSlides.map((_, index) => <View key={index} style={[styles.dot, index === slide && styles.dotActive]} />)}</View></View>
+      <Animated.View style={[styles.heroCopy, { opacity: currentOpacity }]}><Text style={styles.heroKicker}>{item.kicker}</Text><Text style={styles.heroTitle}>{item.title}</Text></Animated.View>
+      <Animated.View style={[styles.heroCopy, { opacity: transition }]}><Text style={styles.heroKicker}>{nextItem.kicker}</Text><Text style={styles.heroTitle}>{nextItem.title}</Text></Animated.View>
+      <View style={styles.heroBadge}><Ionicons name="heart" color={colors.gold} size={12} /><Text style={styles.heroBadgeText}>Creating lasting change</Text></View>
+      <View style={styles.dots}>{heroSlides.map((_, index) => <Pressable accessibilityLabel={`Show story ${index + 1}`} accessibilityRole="button" accessibilityState={{ selected: index === slide }} hitSlop={8} key={index} onPress={() => selectSlide(index)} style={[styles.dot, index === slide && styles.dotActive]} />)}</View>
     </View>
   );
 }
@@ -295,7 +343,7 @@ const styles = StyleSheet.create({
   brandCopy: { flex: 1 },
   brandLogo: { height: 46, resizeMode: "contain", width: 46 },
   brandLogoCompact: { height: 38, width: 38 },
-  brandRow: { alignItems: "center", flexDirection: "row", gap: 10, minHeight: 50 },
+  brandRow: { alignItems: "center", backgroundColor: "rgba(255,255,255,0.72)", borderColor: "rgba(15,118,110,0.08)", borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 10, marginTop: 4, minHeight: 50, paddingHorizontal: 10 },
   brandRowCompact: { minHeight: 40 },
   cardCopy: { color: colors.muted, fontSize: 12, marginTop: 2 },
   cardTitle: { color: colors.text, fontSize: 20, fontWeight: "900" },
@@ -304,9 +352,9 @@ const styles = StyleSheet.create({
   dividerText: { color: colors.muted, fontSize: 10, fontWeight: "700", textTransform: "uppercase" },
   donationRow: { flexDirection: "row", gap: 10, marginTop: 10 },
   donationRowCompact: { marginTop: 5 },
-  dot: { backgroundColor: "rgba(255,255,255,0.5)", borderRadius: 4, height: 5, width: 5 },
-  dotActive: { backgroundColor: colors.gold, width: 18 },
-  dots: { flexDirection: "row", gap: 5, marginTop: 6 },
+  dot: { backgroundColor: "rgba(255,255,255,0.55)", borderRadius: 5, height: 7, width: 7 },
+  dotActive: { backgroundColor: colors.gold, width: 22 },
+  dots: { bottom: 10, flexDirection: "row", gap: 7, position: "absolute", right: 14 },
   error: { backgroundColor: "#fef2f2", borderRadius: 8, color: colors.danger, fontSize: 11, fontWeight: "700", marginBottom: 7, padding: 7 },
   footerLink: { color: colors.primaryDark, fontWeight: "900", textDecorationLine: "underline" },
   footerText: { color: colors.muted, fontSize: 9.5, lineHeight: 14, marginTop: 7, textAlign: "center" },
@@ -314,10 +362,13 @@ const styles = StyleSheet.create({
   googleButtonText: { color: colors.text, fontSize: 13, fontWeight: "800" },
   googleHelp: { color: colors.danger, fontSize: 10, marginTop: 4, textAlign: "center" },
   hero: { backgroundColor: colors.primaryDark, borderRadius: 18, marginTop: 6, minHeight: 92, overflow: "hidden", width: "100%" },
+  heroBadge: { alignItems: "center", backgroundColor: "rgba(4,40,35,0.72)", borderRadius: 999, flexDirection: "row", gap: 5, left: 12, paddingHorizontal: 9, paddingVertical: 5, position: "absolute", top: 10 },
+  heroBadgeText: { color: "white", fontSize: 9, fontWeight: "800" },
   heroCopy: { bottom: 12, left: 14, position: "absolute", right: 14 },
   heroImage: { height: "100%", width: "100%" },
+  heroImageOverlay: { bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
   heroKicker: { color: colors.gold, fontSize: 10, fontWeight: "900", letterSpacing: 0.7, textTransform: "uppercase" },
-  heroShade: { backgroundColor: "rgba(4,40,35,0.35)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
+  heroShade: { backgroundColor: "rgba(4,40,35,0.4)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
   heroTitle: { color: "white", fontSize: 20, fontWeight: "900", marginTop: 2, textShadowColor: "rgba(0,0,0,0.3)", textShadowOffset: { height: 1, width: 0 }, textShadowRadius: 3 },
   input: { color: colors.text, flex: 1, fontSize: 14, height: 40, paddingHorizontal: 8 },
   inputWrap: { alignItems: "center", backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: 10, borderWidth: 1, flexDirection: "row", height: 42, marginBottom: 8, paddingHorizontal: 11 },

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, type ComponentProps } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { ActivityIndicator, Alert, Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { getErrorMessage } from "@/api/client";
+import { getErrorMessage, resolveResourceUrl } from "@/api/client";
 import { getStaff } from "@/api/staff";
 import { SectionHeader, StatusBadge } from "@/components/Polished";
 import { EmptyState, LoadingState, Screen } from "@/components/Screen";
@@ -40,7 +40,11 @@ async function openContactUrl(url: string, unavailableMessage: string) {
 }
 
 function getStaffPhotoUrl(staff: Staff) {
-  return staff.thumbnail_url || staff.current_picture_url || staff.picture_url || staff.photo_url || "";
+  return resolveResourceUrl(staff.current_picture_url || staff.picture_url || staff.photo_url || staff.thumbnail_url);
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "S";
 }
 
 export function StaffDetailScreen() {
@@ -50,6 +54,7 @@ export function StaffDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(staffId)) {
@@ -60,7 +65,9 @@ export function StaffDetailScreen() {
     setError("");
     setLoading(true);
     try {
-      setStaff(await getStaff(staffId));
+      const nextStaff = await getStaff(staffId);
+      setStaff(nextStaff);
+      setPhotoFailed(false);
     } catch (err) {
       setError(getErrorMessage(err, "Unable to load staff details."));
     } finally {
@@ -83,25 +90,28 @@ export function StaffDetailScreen() {
       {staff ? (
         <>
           <View style={styles.profileCard}>
-            {photoUrl ? (
+            {photoUrl && !photoFailed ? (
               <View style={styles.avatarFrame}>
-                <Image fadeDuration={180} onLoadEnd={() => setPhotoLoading(false)} onLoadStart={() => setPhotoLoading(true)} source={{ cache: "force-cache", uri: photoUrl }} style={styles.avatar} />
+                <Image fadeDuration={180} onError={() => { setPhotoFailed(true); setPhotoLoading(false); }} onLoadEnd={() => setPhotoLoading(false)} onLoadStart={() => setPhotoLoading(true)} resizeMode="cover" source={{ uri: photoUrl }} style={styles.avatar} />
                 {photoLoading ? <View style={styles.avatarLoader}><ActivityIndicator color={colors.primaryDark} size="small" /></View> : null}
               </View>
             ) : (
               <View style={styles.avatarFallback}>
-                <Ionicons name="briefcase" color={colors.primaryDark} size={30} />
+                <Text style={styles.avatarInitials}>{initials(staff.full_name)}</Text>
               </View>
             )}
             <View style={styles.profileCopy}>
               <Text style={styles.name}>{staff.full_name}</Text>
-              <Text style={styles.profileMeta}>{staff.prefixed_id || "Staff record"}</Text>
+              <Text numberOfLines={1} style={styles.profileRole}>{staff.job_title || "Staff member"}</Text>
+              <Text style={styles.profileMeta}>{[staff.prefixed_id, staff.department].filter(Boolean).join(" · ") || "Staff record"}</Text>
               <View style={styles.badges}>
                 <StatusBadge tone={staff.is_departed ? "danger" : "success"} text={staff.is_departed ? "Departed" : "Active"} />
                 {staff.is_sponsored !== undefined ? <StatusBadge tone={staff.is_sponsored ? "info" : "neutral"} text={staff.is_sponsored ? "Sponsored" : "Not sponsored"} /> : null}
               </View>
             </View>
           </View>
+
+          <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/(tabs)/staff-photos", params: { scope: staff.is_departed ? "departed" : "" } })} style={({ pressed }) => [styles.photoAction, pressed && styles.pressed]}><View style={styles.photoActionIcon}><Ionicons name="camera-outline" color={colors.primaryDark} size={19} /></View><View style={styles.photoActionCopy}><Text style={styles.photoActionTitle}>{photoUrl && !photoFailed ? "Update profile photo" : "Add profile photo"}</Text><Text style={styles.photoActionText}>Open staff photo management</Text></View><Ionicons name="arrow-forward" color={colors.primaryDark} size={18} /></Pressable>
 
           <SectionHeader title="Staff information" />
           <View style={styles.infoGrid}>
@@ -127,7 +137,7 @@ export function StaffDetailScreen() {
 }
 
 function InfoTile({ icon, label, value }: { icon: ComponentProps<typeof Ionicons>["name"]; label: string; value: string }) {
-  return <View style={styles.infoTile}><View style={styles.infoIcon}><Ionicons name={icon} color={colors.primaryDark} size={19} /></View><Text style={styles.infoLabel}>{label}</Text><Text numberOfLines={2} style={styles.infoValue}>{value}</Text></View>;
+  return <View style={styles.infoTile}><View style={styles.infoIcon}><Ionicons name={icon} color={colors.primaryDark} size={17} /></View><View style={styles.infoCopy}><Text style={styles.infoLabel}>{label}</Text><Text numberOfLines={2} style={styles.infoValue}>{value}</Text></View></View>;
 }
 
 function ContactRow({ disabled = false, icon, label, last = false, onPress, value }: { disabled?: boolean; icon: ComponentProps<typeof Ionicons>["name"]; label: string; last?: boolean; onPress: () => void; value: string }) {
@@ -135,29 +145,37 @@ function ContactRow({ disabled = false, icon, label, last = false, onPress, valu
 }
 
 const styles = StyleSheet.create({
-  avatar: { borderRadius: 42, height: 84, width: 84 },
-  avatarFallback: { alignItems: "center", backgroundColor: "white", borderColor: "rgba(255,255,255,0.45)", borderRadius: 42, borderWidth: 3, height: 84, justifyContent: "center", width: 84 },
-  avatarFrame: { backgroundColor: "white", borderColor: "rgba(255,255,255,0.45)", borderRadius: 42, borderWidth: 3, height: 84, overflow: "hidden", width: 84 },
+  avatar: { height: "100%", width: "100%" },
+  avatarFallback: { alignItems: "center", backgroundColor: "white", borderColor: "rgba(255,255,255,0.5)", borderRadius: 50, borderWidth: 3, height: 100, justifyContent: "center", width: 100 },
+  avatarFrame: { backgroundColor: "white", borderColor: "rgba(255,255,255,0.5)", borderRadius: 50, borderWidth: 3, height: 100, overflow: "hidden", shadowColor: "#022c22", shadowOffset: { height: 3, width: 0 }, shadowOpacity: 0.22, shadowRadius: 8, width: 100 },
+  avatarInitials: { color: colors.primaryDark, fontSize: 27, fontWeight: "900" },
   avatarLoader: { alignItems: "center", backgroundColor: "rgba(255,255,255,0.88)", bottom: 0, justifyContent: "center", left: 0, position: "absolute", right: 0, top: 0 },
   badges: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginTop: spacing.sm },
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.md, overflow: "hidden", paddingHorizontal: spacing.md },
   contactCopy: { flex: 1, minWidth: 0 },
-  contactIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 12, height: 40, justifyContent: "center", width: 40 },
+  contactIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 11, height: 36, justifyContent: "center", width: 36 },
   contactLabel: { color: colors.muted, fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
-  contactRow: { alignItems: "center", borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: "row", gap: spacing.md, minHeight: 70, paddingVertical: spacing.md },
+  contactRow: { alignItems: "center", borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: "row", gap: spacing.md, minHeight: 60, paddingVertical: spacing.sm },
   contactRowLast: { borderBottomWidth: 0 },
   contactValue: { color: colors.text, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 2 },
   infoGrid: { columnGap: spacing.sm, flexDirection: "row", flexWrap: "wrap", marginBottom: spacing.md, rowGap: spacing.sm },
-  infoIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 12, height: 40, justifyContent: "center", marginBottom: spacing.md, width: 40 },
+  infoCopy: { flex: 1, minWidth: 0 },
+  infoIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 10, height: 34, justifyContent: "center", width: 34 },
   infoLabel: { color: colors.muted, fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
-  infoTile: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexBasis: "47%", flexGrow: 1, minHeight: 132, minWidth: 0, padding: spacing.md },
-  infoValue: { color: colors.text, fontSize: 15, fontWeight: "900", lineHeight: 20, marginTop: spacing.xs },
-  name: { color: "white", fontSize: 22, fontWeight: "900" },
+  infoTile: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexBasis: "47%", flexDirection: "row", flexGrow: 1, gap: spacing.sm, minHeight: 78, minWidth: 0, padding: spacing.sm },
+  infoValue: { color: colors.text, fontSize: 13, fontWeight: "900", lineHeight: 17, marginTop: 2 },
+  name: { color: "white", fontSize: 23, fontWeight: "900" },
   pageEyebrow: { color: colors.primaryDark, fontSize: 10, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
   pageHeading: { marginBottom: spacing.md, marginTop: spacing.xs },
   pageTitle: { color: colors.text, fontSize: 27, fontWeight: "900", marginTop: 2 },
-  profileCard: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: radius.lg, flexDirection: "row", gap: spacing.md, marginBottom: spacing.lg, padding: spacing.lg, shadowColor: "#064e3b", shadowOffset: { height: 5, width: 0 }, shadowOpacity: 0.18, shadowRadius: 14 },
+  profileCard: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: radius.lg, flexDirection: "row", gap: spacing.lg, marginBottom: spacing.md, overflow: "hidden", padding: spacing.lg, shadowColor: "#064e3b", shadowOffset: { height: 5, width: 0 }, shadowOpacity: 0.2, shadowRadius: 14 },
   profileCopy: { flex: 1, minWidth: 0 },
-  profileMeta: { color: "rgba(255,255,255,0.76)", fontSize: 13, marginTop: spacing.xs },
+  profileMeta: { color: "rgba(255,255,255,0.7)", fontSize: 11, marginTop: 3 },
+  profileRole: { color: colors.gold, fontSize: 13, fontWeight: "800", marginTop: spacing.xs },
+  photoAction: { alignItems: "center", backgroundColor: colors.primarySoft, borderColor: "#99f6e4", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg, padding: spacing.md },
+  photoActionCopy: { flex: 1 },
+  photoActionIcon: { alignItems: "center", backgroundColor: "white", borderRadius: 12, height: 40, justifyContent: "center", width: 40 },
+  photoActionText: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  photoActionTitle: { color: colors.primaryDark, fontSize: 13, fontWeight: "900" },
   pressed: { opacity: 0.7 }
 });

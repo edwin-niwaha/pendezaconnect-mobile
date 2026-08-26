@@ -1,14 +1,15 @@
-import { api } from "@/api/client";
+import { api, publicApi } from "@/api/client";
 import type { AuthResponse, User } from "@/types";
 import type { ImagePickerAsset } from "expo-image-picker";
 
 export async function login(payload: { username: string; password: string }) {
-  const response = await api.post<AuthResponse>("/auth/login/", payload);
+  const response = await publicApi.post<AuthResponse>("/auth/login/", payload);
   return response.data;
 }
 
-export async function googleLogin(accessToken: string) {
-  const response = await api.post<AuthResponse>("/auth/google/", { access_token: accessToken });
+export async function googleLogin(token: string, tokenType: "access" | "id" = "access") {
+  const payload = tokenType === "id" ? { id_token: token } : { access_token: token };
+  const response = await publicApi.post<AuthResponse>("/auth/google/", payload);
   return response.data;
 }
 
@@ -39,8 +40,12 @@ export async function changePassword(payload: { current_password: string; new_pa
 }
 
 export async function requestPasswordReset(payload: { email: string }) {
-  const response = await api.post<{ detail?: string }>("/auth/password/reset/", payload);
+  const response = await publicApi.post<{ detail?: string }>("/auth/password/reset/", payload);
   return response.data;
 }
 
-export const authApi = { changePassword, googleLogin, login, me, requestPasswordReset, updateProfile, uploadAvatar };
+export async function logout(refresh: string) {
+  await publicApi.post("/auth/logout/", { refresh });
+}
+
+export const authApi = { changePassword, googleLogin, login, logout, me, requestPasswordReset, updateProfile, uploadAvatar };

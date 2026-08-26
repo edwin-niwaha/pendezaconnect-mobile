@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { approveLoan, deleteLoan, disburseLoan, getLoan, rejectLoan, updateLoan, uploadLoanDocuments } from "@/api/loans";
 import { getErrorMessage } from "@/api/client";
-import { AmountRow, FeatureCard, SectionHeader, StatusBadge } from "@/components/Polished";
+import { SectionHeader, StatusBadge } from "@/components/Polished";
 import { EmptyState, LoadingState, Screen } from "@/components/Screen";
 import { colors, radius, spacing } from "@/constants/theme";
 import { ResourceError } from "@/features/shared/ResourceStates";
@@ -192,20 +192,17 @@ export function LoanDetailScreen() {
   if (loading && !loan) return <LoadingState />;
 
   return (
-    <Screen title="Loan Details">
+    <Screen>
+      <View style={styles.pageHeading}><View><Text style={styles.pageEyebrow}>Loan record</Text><Text style={styles.pageTitle}>Loan details</Text></View><View style={styles.pageIcon}><Ionicons name="cash" color={colors.primaryDark} size={22} /></View></View>
       <ResourceError message={error} />
       {message ? <Text style={styles.success}>{message}</Text> : null}
       {loan ? (
         <>
-          <FeatureCard
-            accent={loan.status.toLowerCase().includes("overdue") ? colors.danger : colors.accent}
-            icon="cash"
-            subtitle={joinMeta([loan.borrower_name, loan.borrower_reg_number, loan.loan_purpose ? formatLabel(loan.loan_purpose) : null])}
-            title={`Loan #${loan.id}`}
-            value={formatCurrency(loan.principal_amount)}
-            meta={joinMeta([`${loan.loan_period_months} months`, loan.due_date ? `Due ${formatDate(loan.due_date)}` : null])}
-          />
-          <StatusBadge tone={loanTone(loan.status)} text={formatLabel(loan.status)} />
+          <View style={[styles.hero, loan.status.toLowerCase().includes("overdue") && styles.heroDanger]}>
+            <View style={styles.heroTop}><View style={styles.loanIdentity}><View style={styles.heroIcon}><Ionicons name="document-text-outline" color="white" size={21} /></View><View><Text style={styles.loanNumber}>Loan #{loan.id}</Text><Text numberOfLines={1} style={styles.borrower}>{loan.borrower_name}</Text></View></View><StatusBadge tone={loanTone(loan.status)} text={formatLabel(loan.status)} /></View>
+            <Text style={styles.heroLabel}>Outstanding balance</Text><Text adjustsFontSizeToFit numberOfLines={1} style={styles.heroValue}>{loan.total_outstanding ? formatCurrency(loan.total_outstanding) : formatCurrency(loan.total_repayable)}</Text>
+            <View style={styles.heroMeta}><Text numberOfLines={1} style={styles.heroMetaText}>{joinMeta([loan.borrower_reg_number, loan.loan_purpose ? formatLabel(loan.loan_purpose) : null])}</Text><Text style={styles.heroMetaText}>{loan.due_date ? `Due ${formatDate(loan.due_date)}` : `${loan.loan_period_months} months`}</Text></View>
+          </View>
 
           <View style={styles.progressCard}>
             <View style={styles.rowTop}>
@@ -229,13 +226,14 @@ export function LoanDetailScreen() {
             <Text style={styles.muted}>{loan.status.toLowerCase().includes("reject") ? "This application was not approved. Review the reason below and update it if changes are allowed." : `Current stage: ${formatLabel(loan.status)}`}</Text>
           </View>
 
-          <View style={styles.card}>
-            <AmountRow label="Principal" value={formatCurrency(loan.principal_amount)} />
-            <AmountRow label="Interest rate" value={`${loan.interest_rate}% · ${interestMethod()}`} />
-            <AmountRow label="Interest" value={formatCurrency(loan.total_interest)} />
-            <AmountRow label="Total repayable" value={formatCurrency(loan.total_repayable)} />
-            <AmountRow label="Monthly installment" value={formatCurrency(loan.monthly_installment)} />
-            <AmountRow label="Outstanding" value={loan.total_outstanding ? formatCurrency(loan.total_outstanding) : "Not available"} tone={loan.status.toLowerCase().includes("overdue") ? "danger" : "neutral"} />
+          <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>Financial summary</Text><Text style={styles.sectionHint}>{loan.loan_period_months} month term</Text></View>
+          <View style={styles.financeGrid}>
+            <FinanceTile icon="cash-outline" label="Principal" value={formatCurrency(loan.principal_amount)} />
+            <FinanceTile icon="trending-up-outline" label="Interest" value={`${loan.interest_rate}% · ${interestMethod()}`} />
+            <FinanceTile icon="calculator-outline" label="Interest total" value={formatCurrency(loan.total_interest)} />
+            <FinanceTile icon="receipt-outline" label="Total repayable" value={formatCurrency(loan.total_repayable)} />
+            <FinanceTile icon="calendar-outline" label="Monthly payment" value={formatCurrency(loan.monthly_installment)} />
+            <FinanceTile danger={loan.status.toLowerCase().includes("overdue")} icon="wallet-outline" label="Outstanding" value={loan.total_outstanding ? formatCurrency(loan.total_outstanding) : "Not available"} />
           </View>
 
           <View style={styles.card}>
@@ -374,10 +372,16 @@ export function LoanDetailScreen() {
   );
 }
 
+function FinanceTile({ danger = false, icon, label, value }: { danger?: boolean; icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  const tone = danger ? colors.danger : colors.primaryDark;
+  return <View style={styles.financeTile}><View style={[styles.financeIcon, { backgroundColor: `${tone}14` }]}><Ionicons name={icon} color={tone} size={16} /></View><View style={styles.financeCopy}><Text style={styles.financeLabel}>{label}</Text><Text adjustsFontSizeToFit numberOfLines={1} style={[styles.financeValue, danger && styles.financeDanger]}>{value}</Text></View></View>;
+}
+
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm },
-  card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, marginBottom: spacing.md, padding: spacing.lg },
-  cardTitle: { color: colors.text, fontSize: 17, fontWeight: "900" },
+  borrower: { color: "rgba(255,255,255,0.72)", fontSize: 11, marginTop: 2, maxWidth: 170 },
+  card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, marginBottom: spacing.md, padding: spacing.md },
+  cardTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },
   compactMuted: { color: colors.muted, fontSize: 12, marginTop: 2 },
   dangerButton: { alignItems: "center", backgroundColor: colors.danger, borderRadius: radius.md, flex: 1, justifyContent: "center", minHeight: 44, minWidth: 110 },
   dangerButtonText: { color: "white", fontWeight: "900" },
@@ -387,11 +391,32 @@ const styles = StyleSheet.create({
   documentCopy: { flex: 1 },
   documentText: { color: colors.primaryDark, flex: 1, fontWeight: "800" },
   documentTitle: { color: colors.text, fontWeight: "900" },
+  financeCopy: { flex: 1, minWidth: 0 },
+  financeDanger: { color: colors.danger },
+  financeGrid: { columnGap: spacing.sm, flexDirection: "row", flexWrap: "wrap", marginBottom: spacing.md, rowGap: spacing.sm },
+  financeIcon: { alignItems: "center", borderRadius: 10, height: 32, justifyContent: "center", width: 32 },
+  financeLabel: { color: colors.muted, fontSize: 8, fontWeight: "800", textTransform: "uppercase" },
+  financeTile: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexBasis: "47%", flexDirection: "row", flexGrow: 1, gap: spacing.sm, minHeight: 66, minWidth: 0, padding: spacing.sm },
+  financeValue: { color: colors.text, fontSize: 12, fontWeight: "900", marginTop: 2 },
+  hero: { backgroundColor: colors.primaryDark, borderRadius: radius.lg, marginBottom: spacing.md, overflow: "hidden", padding: spacing.lg, shadowColor: "#064e3b", shadowOffset: { height: 5, width: 0 }, shadowOpacity: 0.2, shadowRadius: 14 },
+  heroDanger: { backgroundColor: "#991b1b" },
+  heroIcon: { alignItems: "center", backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 18, height: 38, justifyContent: "center", width: 38 },
+  heroLabel: { color: "#ccfbf1", fontSize: 9, fontWeight: "800", marginTop: spacing.lg, textTransform: "uppercase" },
+  heroMeta: { borderTopColor: "rgba(255,255,255,0.16)", borderTopWidth: 1, flexDirection: "row", gap: spacing.sm, justifyContent: "space-between", marginTop: spacing.md, paddingTop: spacing.sm },
+  heroMetaText: { color: "rgba(255,255,255,0.72)", flexShrink: 1, fontSize: 10, fontWeight: "700" },
+  heroTop: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  heroValue: { color: "white", fontSize: 28, fontWeight: "900", marginTop: 3, maxWidth: 290 },
   input: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, minHeight: 44, paddingHorizontal: spacing.md },
   installmentNumber: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 14, height: 28, justifyContent: "center", width: 28 },
   installmentNumberText: { color: colors.primaryDark, fontSize: 12, fontWeight: "900" },
   iconButton: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: radius.md, height: 38, justifyContent: "center", width: 38 },
+  loanIdentity: { alignItems: "center", flexDirection: "row", gap: spacing.sm },
+  loanNumber: { color: "white", fontSize: 15, fontWeight: "900" },
   muted: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
+  pageEyebrow: { color: colors.primaryDark, fontSize: 10, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
+  pageHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.md, marginTop: spacing.xs },
+  pageIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 18, height: 44, justifyContent: "center", width: 44 },
+  pageTitle: { color: colors.text, fontSize: 25, fontWeight: "900", marginTop: 2 },
   primaryButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radius.md, flex: 1, justifyContent: "center", minHeight: 44, minWidth: 130, paddingHorizontal: spacing.md },
   primaryButtonText: { color: "white", fontWeight: "900" },
   purposeButton: { borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
@@ -400,7 +425,7 @@ const styles = StyleSheet.create({
   purposeText: { color: colors.text, fontSize: 12, fontWeight: "800" },
   purposeTextActive: { color: "white" },
   progressCaption: { color: colors.primaryDark, fontSize: 12, fontWeight: "800" },
-  progressCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, gap: spacing.md, marginBottom: spacing.md, marginTop: spacing.md, padding: spacing.lg },
+  progressCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, gap: spacing.sm, marginBottom: spacing.md, padding: spacing.md },
   progressDot: { alignItems: "center", backgroundColor: "#e2e8f0", borderRadius: 14, height: 28, justifyContent: "center", width: 28 },
   progressDotReached: { backgroundColor: colors.primary },
   progressLabel: { color: colors.muted, fontSize: 10, fontWeight: "700", marginTop: spacing.xs, maxWidth: 70 },
@@ -414,6 +439,9 @@ const styles = StyleSheet.create({
   scheduleList: { borderTopColor: colors.border, borderTopWidth: 1, marginTop: spacing.xs, paddingTop: spacing.sm },
   scheduleNote: { color: colors.warning, fontSize: 12, marginBottom: spacing.sm },
   scheduleRow: { alignItems: "center", flexDirection: "row", gap: spacing.sm, paddingVertical: spacing.sm },
+  sectionHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm },
+  sectionHint: { color: colors.muted, fontSize: 10, fontWeight: "700" },
+  sectionTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },
   secondaryButton: { alignItems: "center", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 44, minWidth: 110 },
   secondaryButtonText: { color: colors.text, fontWeight: "900" },
   smallAction: { backgroundColor: colors.primarySoft, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },

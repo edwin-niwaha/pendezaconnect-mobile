@@ -1,3 +1,3 @@
-import { StaffPhotoScreen } from "@/features/staff/StaffPhotoScreen";
+import { StaffDirectoryScreen } from "@/features/staff/StaffDirectoryScreen";
 
-export default StaffPhotoScreen;
+export default StaffDirectoryScreen;

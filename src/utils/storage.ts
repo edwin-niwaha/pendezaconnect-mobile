@@ -6,6 +6,8 @@ const TOKEN_KEY = "pendeza-connect.tokens";
 const INSTALLATION_ID_KEY = "pendeza-connect.installation-id";
 const INSTALLATION_RECORD_KEY = "pendeza-connect.installation-record";
 const LOAN_BALANCE_NOTICE_KEY = "pendeza-connect.loan-balance-notice";
+let tokenCache: Tokens | null | undefined;
+let tokenRead: Promise<Tokens | null> | null = null;
 
 function canUseBrowserStorage() {
   return typeof window !== "undefined" && Boolean(window.localStorage);
@@ -35,21 +37,32 @@ async function deleteSecureValue(key: string) {
 }
 
 export async function saveTokens(tokens: Tokens) {
+  tokenCache = tokens;
   await setSecureValue(TOKEN_KEY, JSON.stringify(tokens));
 }
 
 export async function getTokens(): Promise<Tokens | null> {
-  const raw = await getSecureValue(TOKEN_KEY);
-  if (!raw) return null;
+  if (tokenCache !== undefined) return tokenCache;
+  tokenRead = tokenRead ?? (async () => {
+    const raw = await getSecureValue(TOKEN_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as Tokens;
+    } catch {
+      await deleteSecureValue(TOKEN_KEY);
+      return null;
+    }
+  })();
   try {
-    return JSON.parse(raw) as Tokens;
-  } catch {
-    await clearTokens();
-    return null;
+    tokenCache = await tokenRead;
+    return tokenCache;
+  } finally {
+    tokenRead = null;
   }
 }
 
 export async function clearTokens() {
+  tokenCache = null;
   await deleteSecureValue(TOKEN_KEY);
 }
 

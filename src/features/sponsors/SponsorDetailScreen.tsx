@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { getErrorMessage } from "@/api/client";
+import { getErrorMessage, resolveResourceUrl } from "@/api/client";
 import { getSponsor, getSponsorPayments } from "@/api/sponsors";
 import { StatusBadge } from "@/components/Polished";
 import { EmptyState, LoadingState, Screen } from "@/components/Screen";
@@ -26,7 +26,7 @@ function sponsorTypes(sponsor: Sponsor) {
 }
 
 function sponsorPhoto(sponsor: Sponsor) {
-  return sponsor.thumbnail_url || sponsor.current_picture_url || sponsor.picture_url || sponsor.photo_url || "";
+  return resolveResourceUrl(sponsor.thumbnail_url || sponsor.current_picture_url || sponsor.picture_url || sponsor.photo_url);
 }
 
 function initials(name: string) {

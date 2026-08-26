@@ -16,6 +16,7 @@ export function usePaginatedResource<T>(loader: Loader<T>, enabled = true) {
   const [loadMoreError, setLoadMoreError] = useState("");
   const requestId = useRef(0);
   const initialLoad = useRef(true);
+  const hasLoaded = useRef(false);
 
   const loadPage = useCallback(
     async (page: number, mode: "initial" | "refresh" | "more" = "initial") => {
@@ -28,7 +29,9 @@ export function usePaginatedResource<T>(loader: Loader<T>, enabled = true) {
         setError("");
         setLoadMoreError("");
       } else {
-        setLoading(true);
+        // Search requests must not replace the entire list with a loading
+        // screen. Doing so unmounts the header TextInput while the user types.
+        if (!hasLoaded.current) setLoading(true);
         setError("");
         setLoadMoreError("");
       }
@@ -46,13 +49,14 @@ export function usePaginatedResource<T>(loader: Loader<T>, enabled = true) {
           setLoadMoreError(message);
         } else {
           setError(message);
-          if (mode === "initial") setItems([]);
+          if (mode === "initial" && !hasLoaded.current) setItems([]);
         }
       } finally {
         if (id !== requestId.current) return;
         setLoading(false);
         setRefreshing(false);
         setLoadingMore(false);
+        hasLoaded.current = true;
       }
     },
     [loader, search]

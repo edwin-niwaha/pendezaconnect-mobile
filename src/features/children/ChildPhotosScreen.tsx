@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { canChooseFromPhotoLibrary } from "@/features/shared/photoLibraryPermission";
 import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { getErrorMessage } from "@/api/client";
+import { getErrorMessage, resolveResourceUrl } from "@/api/client";
 import { uploadChildPhoto } from "@/api/children";
 import { EmptyState, LoadingState } from "@/components/Screen";
 import { SearchBox } from "@/components/SearchBox";
@@ -140,7 +140,7 @@ export function ChildPhotosScreen() {
       <Pressable onPress={() => router.push(`/(tabs)/children/${item.id}`)} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
         <View style={styles.photoButton}>
           {item.current_picture_url ? (
-            <Image source={{ uri: item.current_picture_url }} style={styles.photo} />
+            <Image source={{ uri: resolveResourceUrl(item.current_picture_url) }} style={styles.photo} />
           ) : (
             <View style={styles.photoFallback}>
               <Ionicons name="person" color={colors.primaryDark} size={24} />
@@ -167,7 +167,7 @@ export function ChildPhotosScreen() {
         keyExtractor={(item) => String(item.id)}
         numColumns={2}
         renderItem={renderChild}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={renderHeader()}
         ListEmptyComponent={!loading && !error ? <EmptyState text={search ? "No children match your search." : "No child photos available."} /> : null}
         ListFooterComponent={<PaginatedListFooter endText="All matching children are loaded." error={loadMoreError} loading={loadingMore} loadingText="Loading more photos..." onRetry={loadMore} showEnd={items.length > 0 && !hasMore} />}
         columnWrapperStyle={styles.columns}

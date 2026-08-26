@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { getErrorMessage } from "@/api/client";
+import { getErrorMessage, resolveResourceUrl } from "@/api/client";
 import { getChild } from "@/api/children";
 import { SectionHeader, StatusBadge } from "@/components/Polished";
 import { EmptyState, LoadingState, Screen } from "@/components/Screen";
@@ -51,8 +51,8 @@ export function ChildDetailScreen() {
       {child ? (
         <>
           <View style={styles.profileCard}>
-            {child.current_picture_url ? (
-              <Image source={{ uri: child.current_picture_url }} style={styles.avatar} />
+            {resolveResourceUrl(child.current_picture_url) ? (
+              <Image source={{ uri: resolveResourceUrl(child.current_picture_url) }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarFallback}>
                 <Ionicons name="person" color={colors.primaryDark} size={30} />

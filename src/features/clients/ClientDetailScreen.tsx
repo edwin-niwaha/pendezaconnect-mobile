@@ -4,9 +4,9 @@ import * as ImagePicker from "expo-image-picker";
 import { canChooseFromPhotoLibrary } from "@/features/shared/photoLibraryPermission";
 import { useLocalSearchParams } from "expo-router";
 import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { getErrorMessage } from "@/api/client";
+import { getErrorMessage, resolveResourceUrl } from "@/api/client";
 import { deleteClientPhoto, uploadClientPhoto } from "@/api/clientPhotos";
-import { getClient } from "@/api/clients";
+import { cacheClient, getCachedClient, getClient } from "@/api/clients";
 import { getClientSavings } from "@/api/savings";
 import { AmountRow, FeatureCard, SectionHeader, StatusBadge } from "@/components/Polished";
 import { EmptyState, LoadingState, Screen } from "@/components/Screen";
@@ -18,21 +18,23 @@ import { formatCurrency, formatDate, formatLabel, joinMeta } from "@/utils/forma
 function getClientPhotoUrl(client: Client) {
   // The profile image is rendered at avatar size, so prefer the much smaller
   // server thumbnail instead of downloading the original photo on every tap.
-  return client.thumbnail_url || client.current_picture_url || client.picture_url || client.photo_url || "";
+  return resolveResourceUrl(client.thumbnail_url || client.current_picture_url || client.picture_url || client.photo_url);
 }
 
 export function ClientDetailScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const clientId = Number(params.id);
-  const [client, setClient] = useState<Client | null>(null);
+  const [client, setClient] = useState<Client | null>(() => Number.isFinite(clientId) ? getCachedClient(clientId) : null);
   const [savings, setSavings] = useState<ClientSavings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!client);
   const [error, setError] = useState("");
   const [photoError, setPhotoError] = useState("");
   const [photoMessage, setPhotoMessage] = useState("");
   const [photoSaving, setPhotoSaving] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState(false);
   const [photoRevision, setPhotoRevision] = useState(0);
+  const [localPhotoUri, setLocalPhotoUri] = useState("");
 
   const load = useCallback(async () => {
     if (!Number.isFinite(clientId)) {
@@ -41,20 +43,24 @@ export function ClientDetailScreen() {
       return;
     }
     setError("");
-    setLoading(true);
-    // Start financial data immediately, but never make the client profile and
-    // photo wait for this slower secondary request.
-    const savingsRequest = getClientSavings(clientId).catch(() => null);
-    try {
-      const nextClient = await getClient(clientId);
-      setClient(nextClient);
-      setLoading(false);
-      setSavings(await savingsRequest);
-    } catch (err) {
-      setError(getErrorMessage(err, "Unable to load client details."));
-    } finally {
-      setLoading(false);
+    const cached = getCachedClient(clientId);
+    if (cached) setClient(cached);
+    setLoading(!cached);
+
+    // Refresh both resources independently. A slow or unavailable detail route
+    // must not hide the client record already returned by the working list API.
+    const [clientResult, savingsResult] = await Promise.allSettled([
+      getClient(clientId),
+      getClientSavings(clientId)
+    ]);
+    if (clientResult.status === "fulfilled") {
+      setClient(clientResult.value);
+      setPhotoFailed(false);
+    } else if (!cached) {
+      setError(getErrorMessage(clientResult.reason, "Unable to load client details."));
     }
+    if (savingsResult.status === "fulfilled") setSavings(savingsResult.value);
+    setLoading(false);
   }, [clientId]);
 
   useEffect(() => {
@@ -79,7 +85,9 @@ export function ClientDetailScreen() {
 
     setPhotoSaving(true);
     try {
-      setClient(await uploadClientPhoto(client.id, result.assets[0]));
+      setClient(cacheClient(await uploadClientPhoto(client.id, result.assets[0])));
+      setLocalPhotoUri(result.assets[0].uri);
+      setPhotoFailed(false);
       setPhotoRevision(Date.now());
       setPhotoMessage("Client photo updated.");
     } catch (err) {
@@ -103,7 +111,9 @@ export function ClientDetailScreen() {
     setPhotoMessage("");
     setPhotoSaving(true);
     try {
-      setClient(await deleteClientPhoto(client.id));
+      setClient(cacheClient(await deleteClientPhoto(client.id)));
+      setLocalPhotoUri("");
+      setPhotoFailed(false);
       setPhotoRevision(Date.now());
       setPhotoMessage("Client photo removed.");
     } catch (err) {
@@ -116,7 +126,8 @@ export function ClientDetailScreen() {
   if (loading && !client) return <LoadingState />;
 
   const rawPhotoUrl = client ? getClientPhotoUrl(client) : "";
-  const photoUrl = rawPhotoUrl && photoRevision ? `${rawPhotoUrl}${rawPhotoUrl.includes("?") ? "&" : "?"}v=${photoRevision}` : rawPhotoUrl;
+  const refreshedPhotoUrl = rawPhotoUrl && photoRevision ? `${rawPhotoUrl}${rawPhotoUrl.includes("?") ? "&" : "?"}v=${photoRevision}` : rawPhotoUrl;
+  const photoUrl = localPhotoUri || refreshedPhotoUrl;
   const accounts = savings?.accounts ?? [];
   const transactions = savings?.transactions?.slice(0, 5) ?? [];
   const balance = accounts.reduce((sum, account) => sum + Number(account.balance || 0), Number(client?.savings_balance || 0));
@@ -130,9 +141,9 @@ export function ClientDetailScreen() {
         <>
           <View style={styles.profileCard}>
             <View style={styles.profileTop}>
-              {photoUrl ? (
+              {photoUrl && !photoFailed ? (
                 <View style={styles.avatarFrame}>
-                  <Image fadeDuration={180} onLoadEnd={() => setPhotoLoading(false)} onLoadStart={() => setPhotoLoading(true)} source={{ cache: "force-cache", uri: photoUrl }} style={styles.avatar} />
+                  <Image fadeDuration={180} onError={() => { setPhotoFailed(true); setPhotoLoading(false); }} onLoadEnd={() => setPhotoLoading(false)} onLoadStart={() => setPhotoLoading(true)} source={{ cache: "force-cache", uri: photoUrl }} style={styles.avatar} />
                   {photoLoading ? <View style={styles.avatarLoader}><ActivityIndicator color={colors.primaryDark} size="small" /></View> : null}
                 </View>
               ) : (

@@ -11,7 +11,7 @@ type AuthContextValue = {
   loading: boolean;
   isAuthenticated: boolean;
   login: (payload: { username: string; password: string }) => Promise<void>;
-  loginWithGoogleToken: (accessToken: string) => Promise<void>;
+  loginWithGoogleToken: (token: string, tokenType?: "access" | "id") => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
 };
@@ -32,19 +32,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       const response = await authApi.login(payload);
-      await saveTokens({ access: response.access, refresh: response.refresh });
+      const tokenSave = saveTokens({ access: response.access, refresh: response.refresh });
       setUser(response.user);
+      try {
+        await tokenSave;
+      } catch (error) {
+        setUser(null);
+        throw error;
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const loginWithGoogleToken = useCallback(async (accessToken: string) => {
+  const loginWithGoogleToken = useCallback(async (token: string, tokenType: "access" | "id" = "access") => {
     setLoading(true);
     try {
-      const response = await authApi.googleLogin(accessToken);
-      await saveTokens({ access: response.access, refresh: response.refresh });
+      const response = await authApi.googleLogin(token, tokenType);
+      const tokenSave = saveTokens({ access: response.access, refresh: response.refresh });
       setUser(response.user);
+      try {
+        await tokenSave;
+      } catch (error) {
+        setUser(null);
+        throw error;
+      }
     } finally {
       setLoading(false);
     }
@@ -54,6 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await unregisterPushNotifications();
     } finally {
+      const tokens = await getTokens();
+      if (tokens?.refresh) await authApi.logout(tokens.refresh).catch(() => undefined);
       await clearTokens();
       setUser(null);
     }

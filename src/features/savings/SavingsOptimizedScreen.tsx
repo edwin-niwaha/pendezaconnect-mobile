@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { getErrorMessage } from "@/api/client";
 import { initiateMobileMoneyDeposit, submitSavingsRequest } from "@/api/savings";
-import { AmountRow, FeatureCard, SectionHeader, StatusBadge } from "@/components/Polished";
+import { SectionHeader, StatusBadge } from "@/components/Polished";
 import { LoadingState, Screen } from "@/components/Screen";
 import { colors, radius, spacing } from "@/constants/theme";
 import { ResourceEmpty, ResourceError } from "@/features/shared/ResourceStates";
@@ -87,18 +88,16 @@ export function SavingsOptimizedScreen() {
   }
 
   return (
-    <Screen title="Savings">
-      <FeatureCard
-        accent="#16a34a"
-        subtitle={accounts.length ? `${accounts.length} visible account${accounts.length === 1 ? "" : "s"} for this user.` : "No savings account found yet."}
-        title="Available balance"
-        value={formatCurrency(totalBalance)}
-        meta={`Deposits ${formatCurrency(deposits)} - Withdrawals ${formatCurrency(withdrawals)}`}
-      />
+    <Screen>
+      <View style={styles.pageHeading}><View><Text style={styles.pageTitle}>Savings</Text><Text style={styles.pageSubtitle}>Accounts, deposits and withdrawals</Text></View><View style={styles.headingIcon}><Ionicons color={colors.primaryDark} name="wallet" size={21} /></View></View>
+      <View style={styles.overviewCard}>
+        <View style={styles.overviewTop}><View><Text style={styles.overviewLabel}>Available balance</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.overviewValue}>{formatCurrency(totalBalance)}</Text></View><View style={styles.overviewIcon}><Ionicons color="white" name="trending-up" size={20} /></View></View>
+        <View style={styles.summaryRow}><View style={styles.summaryItem}><Text style={styles.summaryValue}>{formatCurrency(deposits)}</Text><Text style={styles.summaryLabel}>Deposits</Text></View><View style={styles.summaryDivider} /><View style={styles.summaryItem}><Text style={styles.summaryValue}>{formatCurrency(withdrawals)}</Text><Text style={styles.summaryLabel}>Withdrawals</Text></View><View style={styles.summaryDivider} /><View style={styles.summaryItemSmall}><Text style={styles.summaryValue}>{accounts.length}</Text><Text style={styles.summaryLabel}>Accounts</Text></View></View>
+      </View>
       <ResourceError message={error} />
 
       {isClient && accounts.length ? <>
-        <SectionHeader title="Manage savings" subtitle="Deposit into your account or request a withdrawal." />
+        <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>Quick actions</Text><Text style={styles.sectionHint}>Choose an option</Text></View>
         <View style={styles.actionRow}>
           <ActionButton active={requestType === "momo"} icon="phone-portrait-outline" label="MoMo deposit" onPress={() => chooseType("momo")} />
           <ActionButton active={requestType === "deposit"} icon="add-circle-outline" label="Direct deposit" onPress={() => chooseType("deposit")} />
@@ -119,14 +118,13 @@ export function SavingsOptimizedScreen() {
 
       <SectionHeader title="Accounts" subtitle="Top accounts are shown first for quick review." />
       {visibleAccounts.length ? visibleAccounts.map((account) => (
-        <View key={account.id} style={styles.card}>
+        <Pressable accessibilityRole="button" key={account.id} onPress={() => router.push(`/(tabs)/savings/${account.client}`)} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
           <View style={styles.rowTop}>
             <View style={styles.cardIdentity}><View style={styles.accountIcon}><Ionicons color={colors.primaryDark} name="wallet-outline" size={18} /></View><View style={styles.cardCopy}><Text numberOfLines={1} style={styles.cardTitle}>{account.client_name}</Text><Text style={styles.accountNumber}>{account.account_number || "Savings account"}</Text></View></View>
-            <StatusBadge tone={account.status === "active" ? "success" : "neutral"} text={account.status || "account"} />
+            <View style={styles.accountStatus}><StatusBadge tone={account.status === "active" ? "success" : "neutral"} text={account.status || "account"} /><Ionicons color={colors.muted} name="chevron-forward" size={17} /></View>
           </View>
-          <AmountRow label="Available balance" value={formatCurrency(account.balance)} tone="success" />
-          {account.opening_date ? <Text style={styles.muted}>Opened {formatDate(account.opening_date)}</Text> : null}
-        </View>
+          <View style={styles.accountBalanceRow}><View><Text style={styles.accountBalanceLabel}>Available balance</Text><Text numberOfLines={1} style={styles.accountBalance}>{formatCurrency(account.balance)}</Text></View>{account.opening_date ? <View style={styles.openedPill}><Ionicons color={colors.muted} name="calendar-outline" size={13} /><Text style={styles.openedText}>{formatDate(account.opening_date)}</Text></View> : null}</View>
+        </Pressable>
       )) : <ResourceEmpty text="No savings accounts available for your account." />}
       {accounts.length > ACCOUNT_LIMIT ? <ExpandButton expanded={accountsExpanded} hiddenCount={accounts.length - ACCOUNT_LIMIT} onPress={() => setAccountsExpanded((value) => !value)} /> : null}
 
@@ -164,9 +162,13 @@ function FormField({ label, multiline, ...props }: { label: string; multiline?: 
 }
 
 const styles = StyleSheet.create({
+  accountBalance: { color: colors.success, fontSize: 19, fontWeight: "900", marginTop: 2 },
+  accountBalanceLabel: { color: colors.muted, fontSize: 9, fontWeight: "800", textTransform: "uppercase" },
+  accountBalanceRow: { alignItems: "flex-end", backgroundColor: colors.background, borderRadius: radius.md, flexDirection: "row", justifyContent: "space-between", marginTop: spacing.md, padding: spacing.sm },
   accountIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 18, height: 36, justifyContent: "center", width: 36 },
   accountNumber: { color: colors.muted, fontSize: 11, marginTop: 2 },
-  action: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flex: 1, gap: spacing.xs, justifyContent: "center", minHeight: 60, minWidth: 0, paddingHorizontal: spacing.xs },
+  accountStatus: { alignItems: "center", flexDirection: "row", gap: spacing.xs },
+  action: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flex: 1, flexDirection: "row", gap: spacing.xs, justifyContent: "center", minHeight: 48, minWidth: 0, paddingHorizontal: spacing.xs },
   actionActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
   actionRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   actionText: { color: colors.text, fontSize: 12, fontWeight: "800", textAlign: "center" },
@@ -174,7 +176,7 @@ const styles = StyleSheet.create({
   activityCount: { color: colors.muted, fontSize: 11, fontWeight: "800" },
   activityHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   breakdown: { color: colors.primaryDark, fontSize: 12, fontWeight: "700", marginTop: spacing.sm },
-  card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.md, padding: spacing.lg },
+  card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.sm, padding: spacing.md },
   cardCopy: { flex: 1, minWidth: 0 },
   cardIdentity: { alignItems: "center", flex: 1, flexDirection: "row", gap: spacing.sm, minWidth: 0 },
   cardTitle: { color: colors.text, flex: 1, fontSize: 17, fontWeight: "900" },
@@ -185,8 +187,9 @@ const styles = StyleSheet.create({
   expandText: { color: colors.primaryDark, fontSize: 13, fontWeight: "900" },
   field: { marginTop: spacing.md },
   fieldLabel: { color: colors.text, fontSize: 13, fontWeight: "800", marginBottom: spacing.xs, marginTop: spacing.md },
-  formCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.lg, padding: spacing.lg },
-  formTitle: { color: colors.text, fontSize: 18, fontWeight: "900" },
+  formCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.lg, padding: spacing.md },
+  formTitle: { color: colors.text, fontSize: 16, fontWeight: "900" },
+  headingIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 18, height: 44, justifyContent: "center", width: 44 },
   filterChip: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, justifyContent: "center", minHeight: 36, paddingHorizontal: spacing.md },
   filterChipActive: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
   filterRow: { gap: spacing.sm, marginBottom: spacing.md, paddingRight: spacing.lg },
@@ -202,9 +205,29 @@ const styles = StyleSheet.create({
   notice: { backgroundColor: colors.primarySoft, borderRadius: radius.md, marginTop: spacing.md, padding: spacing.md },
   noticeText: { color: colors.primaryDark, fontSize: 12, lineHeight: 18, marginTop: spacing.xs },
   noticeTitle: { color: colors.primaryDark, fontWeight: "900" },
+  openedPill: { alignItems: "center", flexDirection: "row", gap: 4 },
+  openedText: { color: colors.muted, fontSize: 10, fontWeight: "700" },
+  overviewCard: { backgroundColor: colors.primaryDark, borderRadius: radius.lg, marginBottom: spacing.md, padding: spacing.lg, shadowColor: "#064e3b", shadowOffset: { height: 4, width: 0 }, shadowOpacity: 0.18, shadowRadius: 12 },
+  overviewIcon: { alignItems: "center", backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 18, height: 36, justifyContent: "center", width: 36 },
+  overviewLabel: { color: "#ccfbf1", fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
+  overviewTop: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  overviewValue: { color: "white", fontSize: 27, fontWeight: "900", marginTop: 3, maxWidth: 260 },
+  pageHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.md, marginTop: spacing.xs },
+  pageSubtitle: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  pageTitle: { color: colors.text, fontSize: 24, fontWeight: "900" },
+  pressed: { opacity: 0.76 },
   rowTop: { alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" },
+  sectionHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm, marginTop: spacing.sm },
+  sectionHint: { color: colors.muted, fontSize: 10, fontWeight: "700" },
+  sectionTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },
   submit: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: radius.md, justifyContent: "center", marginTop: spacing.lg, minHeight: 50 },
   submitText: { color: "white", fontWeight: "900" },
+  summaryDivider: { backgroundColor: "rgba(255,255,255,0.18)", width: 1 },
+  summaryItem: { flex: 1, minWidth: 0 },
+  summaryItemSmall: { flex: 0.55, minWidth: 0 },
+  summaryLabel: { color: "rgba(255,255,255,0.68)", fontSize: 8, fontWeight: "800", marginTop: 2, textTransform: "uppercase" },
+  summaryRow: { borderTopColor: "rgba(255,255,255,0.16)", borderTopWidth: 1, flexDirection: "row", gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.sm },
+  summaryValue: { color: "white", fontSize: 11, fontWeight: "900" },
   textarea: { minHeight: 90, paddingTop: spacing.md, textAlignVertical: "top" },
   transactionAmount: { color: colors.success, fontSize: 14, fontWeight: "900", marginLeft: spacing.sm },
   transactionCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.md, padding: spacing.md },

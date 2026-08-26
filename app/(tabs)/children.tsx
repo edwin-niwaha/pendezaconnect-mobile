@@ -1,3 +1,3 @@
-import { ChildPhotosScreen } from "@/features/children/ChildPhotosScreen";
+import { ChildDirectoryScreen } from "@/features/children/ChildDirectoryScreen";
 
-export default ChildPhotosScreen;
+export default ChildDirectoryScreen;
