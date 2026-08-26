@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -37,7 +37,7 @@ function sponsorTypes(sponsor: Sponsor) {
   ].filter(Boolean);
 }
 
-function SponsorCard({ sponsor }: { sponsor: Sponsor }) {
+const SponsorCard = memo(function SponsorCard({ sponsor }: { sponsor: Sponsor }) {
   const title = sponsorTitle(sponsor);
   const types = sponsorTypes(sponsor);
   return (
@@ -59,6 +59,10 @@ function SponsorCard({ sponsor }: { sponsor: Sponsor }) {
       </View>
     </Pressable>
   );
+});
+
+function renderSponsor({ item }: { item: Sponsor }) {
+  return <SponsorCard sponsor={item} />;
 }
 
 export function SponsorsOptimizedScreen() {
@@ -70,7 +74,7 @@ export function SponsorsOptimizedScreen() {
     <FlatList
       data={items}
       keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => <SponsorCard sponsor={item} />}
+      renderItem={renderSponsor}
       ListHeaderComponent={(
         <>
           <View style={styles.headingRow}>

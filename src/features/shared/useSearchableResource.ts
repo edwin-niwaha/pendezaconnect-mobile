@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorMessage } from "@/api/client";
 
 export function useSearchableResource<T>(loader: (search: string) => Promise<T[]>) {
@@ -6,16 +6,23 @@ export function useSearchableResource<T>(loader: (search: string) => Promise<T[]
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const hasLoaded = useRef(false);
+  const requestId = useRef(0);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const id = ++requestId.current;
+    if (!hasLoaded.current) setLoading(true);
     setError("");
     try {
-      setItems(await loader(search));
+      const nextItems = await loader(search);
+      if (id === requestId.current) setItems(nextItems);
     } catch (err) {
-      setError(getErrorMessage(err, "Unable to load data."));
+      if (id === requestId.current) setError(getErrorMessage(err, "Unable to load data."));
     } finally {
-      setLoading(false);
+      if (id === requestId.current) {
+        hasLoaded.current = true;
+        setLoading(false);
+      }
     }
   }, [loader, search]);
 

@@ -23,6 +23,23 @@ function defaultDevBaseUrl() {
 
 export const API_BASE_URL = ENV_API_BASE_URL || defaultDevBaseUrl();
 
+/** Resolve relative API media paths, which native image views cannot resolve themselves. */
+export function resolveResourceUrl(value?: string | null) {
+  const url = value?.trim();
+  if (!url) return "";
+  try {
+    const apiUrl = new URL(API_BASE_URL);
+    if (/^(?:file:|content:|data:|blob:)/i.test(url)) return url;
+    const resolved = new URL(url.startsWith("/") ? url : url, apiUrl.origin);
+    // Reverse proxies sometimes serialize same-host media links as HTTP even
+    // though the public API is HTTPS; Android release builds reject those.
+    if (apiUrl.protocol === "https:" && resolved.hostname === apiUrl.hostname) resolved.protocol = "https:";
+    return resolved.toString();
+  } catch {
+    return url;
+  }
+}
+
 export const api = create({ baseURL: API_BASE_URL, timeout: REQUEST_TIMEOUT_MS });
 
 // Public endpoints must not receive a stale or expired bearer token. DRF will
@@ -73,14 +90,19 @@ async function refreshAccessToken() {
     }
     const response = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, { refresh: tokens.refresh }, { timeout: REQUEST_TIMEOUT_MS });
     const access = response.data?.access;
+    const refresh = response.data?.refresh || tokens.refresh;
     if (!access) {
       await invalidateSession();
       return null;
     }
-    await saveTokens({ access, refresh: tokens.refresh });
+    await saveTokens({ access, refresh });
     return access;
   } catch (error) {
-    await invalidateSession();
+    // Keep the session on transient connectivity/server failures. Only an
+    // explicit token rejection proves that the refresh credential is invalid.
+    if (isAxiosError(error) && [400, 401].includes(error.response?.status ?? 0)) {
+      await invalidateSession();
+    }
     throw error;
   }
 }

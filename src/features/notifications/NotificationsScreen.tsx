@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { openNotification } from "@/features/notifications/NotificationCoordinator";
@@ -36,23 +36,40 @@ function timeLabel(value: string) {
   return new Date(value).toLocaleDateString();
 }
 
+const NotificationRow = memo(function NotificationRow({ item, onOpen }: { item: InboxNotification; onOpen: (item: InboxNotification) => void }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={() => onOpen(item)} style={({ pressed }) => [styles.card, !item.read && styles.unreadCard, pressed && styles.pressed]}>
+      <View style={[styles.icon, !item.read && styles.unreadIcon]}><Ionicons color={item.read ? colors.muted : colors.primaryDark} name={notificationIcon(item.data.event)} size={21} /></View>
+      <View style={styles.copy}>
+        <View style={styles.titleRow}><Text numberOfLines={1} style={[styles.title, !item.read && styles.unreadTitle]}>{item.title}</Text>{!item.read ? <View accessibilityLabel="Unread" style={styles.unreadDot} /> : null}</View>
+        <Text style={styles.body}>{item.body}</Text>
+        <Text style={styles.time}>{timeLabel(item.receivedAt)}</Text>
+      </View>
+      <Ionicons color="#94a3b8" name="chevron-forward" size={17} />
+    </Pressable>
+  );
+});
+
 export function NotificationsScreen() {
   const { clearAll, items, loading, markAllRead, markRead, refresh, unreadCount } = useNotificationsInbox();
   const [filter, setFilter] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
-  if (loading) return <LoadingState />;
-  const filteredItems = items.filter((item) => {
+  const filteredItems = useMemo(() => items.filter((item) => {
     if (filter === "all") return true;
     if (filter === "unread") return !item.read;
     const event = String(item.data.event || "");
     if (filter === "payment") return event.includes("payment") || event.includes("sponsorship");
     return event.includes(filter);
-  });
+  }), [filter, items]);
 
-  async function open(item: InboxNotification) {
+  const open = useCallback(async (item: InboxNotification) => {
     await markRead(item.id);
     openNotification(item.data);
-  }
+  }, [markRead]);
+
+  const renderNotification = useCallback(({ item }: { item: InboxNotification }) => <NotificationRow item={item} onOpen={open} />, [open]);
+
+  if (loading) return <LoadingState />;
 
   function confirmClear() {
     Alert.alert("Clear notifications", "Remove all notifications from this device?", [
@@ -71,17 +88,7 @@ export function NotificationsScreen() {
     <FlatList
       data={filteredItems}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <Pressable accessibilityRole="button" onPress={() => void open(item)} style={({ pressed }) => [styles.card, !item.read && styles.unreadCard, pressed && styles.pressed]}>
-          <View style={[styles.icon, !item.read && styles.unreadIcon]}><Ionicons color={item.read ? colors.muted : colors.primaryDark} name={notificationIcon(item.data.event)} size={21} /></View>
-          <View style={styles.copy}>
-            <View style={styles.titleRow}><Text numberOfLines={1} style={[styles.title, !item.read && styles.unreadTitle]}>{item.title}</Text>{!item.read ? <View accessibilityLabel="Unread" style={styles.unreadDot} /> : null}</View>
-            <Text style={styles.body}>{item.body}</Text>
-            <Text style={styles.time}>{timeLabel(item.receivedAt)}</Text>
-          </View>
-          <Ionicons color="#94a3b8" name="chevron-forward" size={17} />
-        </Pressable>
-      )}
+      renderItem={renderNotification}
       ListHeaderComponent={(
         <>
           <View style={styles.heading}>

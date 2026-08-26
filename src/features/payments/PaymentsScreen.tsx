@@ -28,6 +28,10 @@ function PaymentField({ keyboardType, label, onChangeText, onPickContact, placeh
   return <View style={styles.field}><Text style={styles.label}>{label}</Text><View style={styles.inputRow}><TextInput autoCapitalize="none" keyboardType={keyboardType} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.muted} style={[styles.input, onPickContact && styles.inputWithAction]} value={value} />{onPickContact ? <Pressable accessibilityLabel="Choose phone number from contacts" onPress={onPickContact} style={styles.contactButton}><Ionicons name="person-add-outline" color={colors.primaryDark} size={21} /></Pressable> : null}</View></View>;
 }
 
+function renderPayment({ item }: { item: ReturnType<typeof usePayments>["items"][number] }) {
+  return <RowCard title={joinMeta([item.sponsor_name, formatCurrency(item.amount)])} subtitle={joinMeta([item.program_name || "Sponsor payment", formatDate(item.payment_date)])} meta={item.reference || item.sponsor_code} />;
+}
+
 export function PaymentsScreen({ publicMode = false }: { publicMode?: boolean }) {
   const history = usePayments(!publicMode);
   const [amount, setAmount] = useState("170000");
@@ -85,7 +89,7 @@ export function PaymentsScreen({ publicMode = false }: { publicMode?: boolean })
   return <FlatList
     data={history.items}
     keyExtractor={(item) => String(item.id)}
-    renderItem={({ item }) => <RowCard title={joinMeta([item.sponsor_name, formatCurrency(item.amount)])} subtitle={joinMeta([item.program_name || "Sponsor payment", formatDate(item.payment_date)])} meta={item.reference || item.sponsor_code} />}
+    renderItem={renderPayment}
     ListHeaderComponent={<>
       <View style={styles.paymentCard}>
         <Text style={styles.cardTitle}>Choose an amount</Text>

@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { applyForLoan } from "@/api/loans";
 import { getErrorMessage } from "@/api/client";
-import { AmountRow, FeatureCard, SectionHeader, StatusBadge } from "@/components/Polished";
+import { StatusBadge } from "@/components/Polished";
 import { LoadingState } from "@/components/Screen";
 import { SearchBox } from "@/components/SearchBox";
 import { colors, radius, spacing } from "@/constants/theme";
@@ -206,20 +206,11 @@ export function LoansOptimizedScreen() {
   function renderHeader() {
     return (
       <>
-        <Text style={styles.screenTitle}>Loans</Text>
-        <FeatureCard
-          accent={overdueLoans ? colors.danger : colors.accent}
-          subtitle={nextDue ? `Next visible due date: ${formatDate(nextDue.due_date)}` : "Apply, track documents, and review loan workflow status."}
-          title="Outstanding"
-          value={formatCurrency(outstanding)}
-          meta={joinMeta([`${activeLoans} active`, staff && queue.length ? `${queue.length} awaiting review` : null, count ? `${count} total` : null])}
-        />
-        {client ? (
-          <Pressable onPress={toggleApplication} style={styles.applyButton}>
-            <Ionicons name="add-circle-outline" color="white" size={20} />
-            <Text style={styles.applyButtonText}>Apply for loan</Text>
-          </Pressable>
-        ) : null}
+        <View style={styles.headingRow}><View><Text style={styles.screenTitle}>Loans</Text><Text style={styles.screenSubtitle}>Balances, applications and repayments</Text></View>{client ? <Pressable accessibilityLabel="Apply for loan" onPress={toggleApplication} style={styles.applyButton}><Ionicons name="add" color="white" size={20} /><Text style={styles.applyButtonText}>Apply</Text></Pressable> : null}</View>
+        <Pressable disabled={!primaryRunningLoanId} onPress={() => primaryRunningLoanId && router.push(`/(tabs)/loans/${primaryRunningLoanId}`)} style={[styles.overviewCard, overdueLoans > 0 && styles.overviewCardDanger]}>
+          <View style={styles.overviewTop}><View><Text style={styles.overviewLabel}>Total outstanding</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.overviewValue}>{formatCurrency(outstanding)}</Text></View>{primaryRunningLoanId ? <View style={styles.overviewArrow}><Ionicons name="arrow-forward" color="white" size={17} /></View> : null}</View>
+          <View style={styles.summaryRow}><View style={styles.summaryItem}><Text style={styles.summaryValue}>{activeLoans}</Text><Text style={styles.summaryLabel}>Active</Text></View><View style={styles.summaryDivider} /><View style={styles.summaryItem}><Text style={styles.summaryValue}>{count}</Text><Text style={styles.summaryLabel}>Total</Text></View>{staff ? <><View style={styles.summaryDivider} /><View style={styles.summaryItem}><Text style={styles.summaryValue}>{queue.length}</Text><Text style={styles.summaryLabel}>To review</Text></View></> : nextDue ? <><View style={styles.summaryDivider} /><View style={[styles.summaryItem, styles.summaryItemWide]}><Text numberOfLines={1} style={styles.summaryValueSmall}>{formatDate(nextDue.due_date)}</Text><Text style={styles.summaryLabel}>Next due</Text></View></> : null}</View>
+        </Pressable>
         <ResourceError message={error || formError} />
         {formMessage ? <Text style={styles.success}>{formMessage}</Text> : null}
         {applyToast ? (
@@ -227,16 +218,6 @@ export function LoansOptimizedScreen() {
             <Ionicons name="information-circle" color="white" size={21} />
             <Text style={styles.toastText}>{applyToast}</Text>
           </View>
-        ) : null}
-        {client && runningLoans.length ? (
-          <Pressable onPress={() => router.push(`/(tabs)/loans/${runningLoans[0].id}`)} style={styles.balanceNotice}>
-            <Ionicons name="notifications-outline" color={colors.warning} size={21} />
-            <View style={styles.balanceNoticeCopy}>
-              <Text style={styles.balanceNoticeTitle}>Running loan balance</Text>
-              <Text style={styles.muted}>You have {formatCurrency(outstanding)} outstanding. Tap to review repayment details.</Text>
-            </View>
-            <Ionicons name="chevron-forward" color={colors.muted} size={18} />
-          </Pressable>
         ) : null}
         {renderApplicationForm()}
         <SearchBox value={search} onChangeText={setSearch} placeholder="Search loans" />
@@ -255,7 +236,7 @@ export function LoansOptimizedScreen() {
             <Text style={styles.muted}>{queue.length} loan{queue.length === 1 ? "" : "s"} require your team’s attention.</Text>
           </View>
         ) : null}
-        <SectionHeader title={client ? "My loans" : "Loan records"} subtitle="Open a loan to review documents, approval status, and available actions." />
+        <View style={styles.listHeading}><Text style={styles.listTitle}>{client ? "My loans" : "Loan records"}</Text><Text style={styles.listHint}>Tap a record for details</Text></View>
       </>
     );
   }
@@ -267,10 +248,9 @@ export function LoansOptimizedScreen() {
           <Text style={styles.title}>{joinMeta([`Loan #${item.id}`, item.borrower_name])}</Text>
           <StatusBadge tone={loanTone(item.status)} text={formatLabel(item.status)} />
         </View>
-        <Text style={styles.subtitle}>{joinMeta([item.borrower_reg_number, item.loan_purpose ? formatLabel(item.loan_purpose) : "No purpose recorded"])}</Text>
-        <AmountRow label="Principal" value={formatCurrency(item.principal_amount)} />
-        <AmountRow label="Outstanding" value={item.total_outstanding ? formatCurrency(item.total_outstanding) : "Not available"} tone={item.status.toLowerCase().includes("overdue") ? "danger" : "neutral"} />
-        <Text style={styles.meta}>{joinMeta([`${item.loan_period_months} months`, item.monthly_installment ? `${formatCurrency(item.monthly_installment)} monthly` : null, item.due_date ? `Due ${formatDate(item.due_date)}` : null])}</Text>
+        <Text numberOfLines={1} style={styles.subtitle}>{joinMeta([item.borrower_reg_number, item.loan_purpose ? formatLabel(item.loan_purpose) : "No purpose recorded"])}</Text>
+        <View style={styles.amountGrid}><View style={styles.amountItem}><Text style={styles.amountLabel}>Principal</Text><Text numberOfLines={1} style={styles.amountValue}>{formatCurrency(item.principal_amount)}</Text></View><View style={styles.amountDivider} /><View style={styles.amountItem}><Text style={styles.amountLabel}>Outstanding</Text><Text numberOfLines={1} style={[styles.amountValue, item.status.toLowerCase().includes("overdue") && styles.amountDanger]}>{item.total_outstanding ? formatCurrency(item.total_outstanding) : "—"}</Text></View></View>
+        <View style={styles.metaRow}><Ionicons name="calendar-outline" color={colors.muted} size={14} /><Text numberOfLines={1} style={styles.meta}>{joinMeta([`${item.loan_period_months} months`, item.monthly_installment ? `${formatCurrency(item.monthly_installment)}/month` : null, item.due_date ? `Due ${formatDate(item.due_date)}` : null])}</Text><Ionicons name="chevron-forward" color={colors.muted} size={16} /></View>
       </Pressable>
     );
   }
@@ -294,12 +274,18 @@ export function LoansOptimizedScreen() {
 }
 
 const styles = StyleSheet.create({
-  applyButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, justifyContent: "center", marginBottom: spacing.md, minHeight: 46, paddingHorizontal: spacing.lg },
+  amountDanger: { color: colors.danger },
+  amountDivider: { alignSelf: "stretch", backgroundColor: colors.border, width: 1 },
+  amountGrid: { backgroundColor: colors.background, borderRadius: radius.md, flexDirection: "row", gap: spacing.md, marginTop: spacing.md, padding: spacing.sm },
+  amountItem: { flex: 1, minWidth: 0 },
+  amountLabel: { color: colors.muted, fontSize: 9, fontWeight: "800", textTransform: "uppercase" },
+  amountValue: { color: colors.text, fontSize: 13, fontWeight: "900", marginTop: 3 },
+  applyButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radius.md, flexDirection: "row", gap: spacing.xs, justifyContent: "center", minHeight: 40, paddingHorizontal: spacing.md },
   applyButtonText: { color: "white", fontWeight: "900" },
   balanceNotice: { alignItems: "center", backgroundColor: "#fffbeb", borderColor: "#fde68a", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md, padding: spacing.md },
   balanceNoticeCopy: { flex: 1 },
   balanceNoticeTitle: { color: colors.warning, fontWeight: "900" },
-  card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.md, padding: spacing.lg },
+  card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.sm, padding: spacing.md },
   content: { padding: spacing.lg, paddingBottom: 36 },
   documentButton: { alignItems: "center", backgroundColor: "#ecfeff", borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, minHeight: 42, paddingHorizontal: spacing.md },
   documentChecklistHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
@@ -321,8 +307,19 @@ const styles = StyleSheet.create({
   filterRow: { gap: spacing.sm, paddingRight: spacing.lg },
   filterSection: { marginBottom: spacing.md },
   input: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, marginBottom: spacing.sm, minHeight: 44, paddingHorizontal: spacing.md },
-  meta: { color: colors.primaryDark, fontSize: 12, fontWeight: "800", marginTop: spacing.sm, textTransform: "uppercase" },
+  headingRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.md },
+  listHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm, marginTop: spacing.xs },
+  listHint: { color: colors.muted, fontSize: 10, fontWeight: "700" },
+  listTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },
+  meta: { color: colors.muted, flex: 1, fontSize: 10, fontWeight: "700" },
+  metaRow: { alignItems: "center", flexDirection: "row", gap: spacing.xs, marginTop: spacing.sm },
   muted: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
+  overviewArrow: { alignItems: "center", backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 16, height: 32, justifyContent: "center", width: 32 },
+  overviewCard: { backgroundColor: colors.primaryDark, borderRadius: radius.lg, marginBottom: spacing.md, padding: spacing.lg, shadowColor: "#064e3b", shadowOffset: { height: 4, width: 0 }, shadowOpacity: 0.16, shadowRadius: 12 },
+  overviewCardDanger: { backgroundColor: "#991b1b" },
+  overviewLabel: { color: "#ccfbf1", fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
+  overviewTop: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  overviewValue: { color: "white", fontSize: 25, fontWeight: "900", marginTop: 3, maxWidth: 250 },
   pressed: { opacity: 0.78 },
   primaryButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radius.md, flex: 1, justifyContent: "center", minHeight: 44 },
   primaryButtonText: { color: "white", fontWeight: "900" },
@@ -335,10 +332,18 @@ const styles = StyleSheet.create({
   queueTitle: { color: colors.warning, fontSize: 16, fontWeight: "900" },
   root: { backgroundColor: colors.background, flex: 1 },
   rowTop: { alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" },
-  screenTitle: { color: colors.text, fontSize: 24, fontWeight: "800", marginBottom: spacing.lg },
+  screenSubtitle: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  screenTitle: { color: colors.text, fontSize: 24, fontWeight: "900" },
   secondaryButton: { alignItems: "center", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 44 },
   secondaryButtonText: { color: colors.text, fontWeight: "900" },
   subtitle: { color: colors.muted, lineHeight: 20, marginTop: spacing.xs },
+  summaryDivider: { backgroundColor: "rgba(255,255,255,0.2)", width: 1 },
+  summaryItem: { flex: 1 },
+  summaryItemWide: { flex: 1.5 },
+  summaryLabel: { color: "rgba(255,255,255,0.7)", fontSize: 9, fontWeight: "700", marginTop: 2, textTransform: "uppercase" },
+  summaryRow: { borderTopColor: "rgba(255,255,255,0.16)", borderTopWidth: 1, flexDirection: "row", gap: spacing.md, marginTop: spacing.md, paddingTop: spacing.sm },
+  summaryValue: { color: "white", fontSize: 15, fontWeight: "900" },
+  summaryValueSmall: { color: "white", fontSize: 11, fontWeight: "900" },
   success: { backgroundColor: "#dcfce7", borderRadius: radius.md, color: colors.success, fontWeight: "800", marginBottom: spacing.md, padding: spacing.md },
   textArea: { minHeight: 78, paddingTop: spacing.md, textAlignVertical: "top" },
   title: { color: colors.text, flex: 1, fontSize: 17, fontWeight: "900" },

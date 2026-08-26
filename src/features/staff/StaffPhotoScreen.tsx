@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { canChooseFromPhotoLibrary } from "@/features/shared/photoLibraryPermission";
 import { ActivityIndicator, Alert, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { getErrorMessage } from "@/api/client";
+import { getErrorMessage, resolveResourceUrl } from "@/api/client";
 import { deleteStaffPhoto, uploadStaffPhoto } from "@/api/staff";
 import { EmptyState, LoadingState } from "@/components/Screen";
 import { SearchBox } from "@/components/SearchBox";
@@ -15,7 +15,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useStaff } from "./useStaff";
 
 function getStaffPhotoUrl(staff: Staff) {
-  return staff.thumbnail_url || staff.current_picture_url || staff.picture_url || staff.photo_url || "";
+  return resolveResourceUrl(staff.current_picture_url || staff.picture_url || staff.photo_url || staff.thumbnail_url);
 }
 
 function matchesScope(staff: Staff, scope: string) {
@@ -141,14 +141,14 @@ export function StaffPhotoScreen() {
     const busy = busyStaffId === item.id;
     const removing = busy && busyOperation === "remove";
     function openDetails() {
-      if (photoUrl) void Image.prefetch(photoUrl);
+      if (photoUrl) void Image.prefetch(photoUrl).catch(() => false);
       router.push(`/(tabs)/staff/${item.id}`);
     }
     return (
       <View style={styles.card}>
         <Pressable accessibilityLabel={`Open ${item.full_name}'s staff details`} accessibilityRole="button" onPress={openDetails} style={({ pressed }) => [styles.staffHeader, pressed && styles.pressed]}>
           {photoUrl ? (
-            <Image fadeDuration={180} source={{ cache: "force-cache", uri: photoUrl }} style={styles.avatar} />
+            <Image fadeDuration={180} resizeMode="cover" source={{ uri: photoUrl }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarFallback}>
               <Ionicons name="person" color={colors.primaryDark} size={24} />
@@ -187,7 +187,7 @@ export function StaffPhotoScreen() {
       data={visibleItems}
       keyExtractor={(item) => String(item.id)}
       renderItem={renderStaff}
-      ListHeaderComponent={renderHeader}
+      ListHeaderComponent={renderHeader()}
       ListEmptyComponent={!loading && !error ? <EmptyState text={search ? "No staff match your search." : "No staff records available for your account."} /> : null}
       ListFooterComponent={<PaginatedListFooter endText="All matching staff are loaded." error={loadMoreError} loading={loadingMore} loadingText="Loading more staff..." onRetry={loadMore} showEnd={items.length > 0 && !hasMore} />}
       contentContainerStyle={styles.content}

@@ -15,7 +15,7 @@ export function MetricCard({ label, value }: { label: string; value: string | nu
   );
 }
 
-export function RowCard({ title, subtitle, meta, onPress }: { title: string; subtitle?: string; meta?: string; onPress?: () => void }) {
+export const RowCard = React.memo(function RowCard({ title, subtitle, meta, onPress }: { title: string; subtitle?: string; meta?: string; onPress?: () => void }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <Text style={styles.rowTitle}>{title}</Text>
@@ -23,7 +23,7 @@ export function RowCard({ title, subtitle, meta, onPress }: { title: string; sub
       {meta ? <Text style={styles.meta}>{meta}</Text> : null}
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.md, padding: spacing.lg },

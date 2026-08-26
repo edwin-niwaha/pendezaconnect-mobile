@@ -7,7 +7,7 @@ import { canChooseFromPhotoLibrary } from "@/features/shared/photoLibraryPermiss
 import { ActivityIndicator, Alert, AppState, Image, Linking, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
 import { authApi } from "@/api/services";
-import { getErrorMessage } from "@/api/client";
+import { getErrorMessage, resolveResourceUrl } from "@/api/client";
 import { Screen } from "@/components/Screen";
 import { StatusBadge } from "@/components/Polished";
 import { colors, radius, spacing } from "@/constants/theme";
@@ -116,7 +116,7 @@ export default function Account() {
     return () => subscription.remove();
   }, [refreshPermissions]);
 
-  const avatarUri = user?.avatar_url || user?.profile_photo_url || "";
+  const avatarUri = resolveResourceUrl(user?.avatar_url || user?.profile_photo_url);
   const displayedAvatarUri = avatarUri ? `${avatarUri}${avatarUri.includes("?") ? "&" : "?"}v=${avatarVersion}` : "";
   const displayName = useMemo(() => {
     const name = `${profile.firstName} ${profile.lastName}`.trim();
