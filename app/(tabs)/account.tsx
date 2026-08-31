@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import * as Contacts from "expo-contacts";
 import * as ImagePicker from "expo-image-picker";
 import * as Notifications from "expo-notifications";
@@ -61,7 +62,7 @@ export default function Account() {
   const [resetError, setResetError] = useState("");
   const [resetMessage, setResetMessage] = useState("");
   const [resetSending, setResetSending] = useState(false);
-  const [expandedSection, setExpandedSection] = useState<"permissions" | "profile" | "security" | "session" | null>("profile");
+  const [expandedSection, setExpandedSection] = useState<"about" | "permissions" | "profile" | "security" | null>("profile");
   const [permissionBusy, setPermissionBusy] = useState<PermissionKey | null>(null);
   const [permissionError, setPermissionError] = useState("");
   const [permissionMessage, setPermissionMessage] = useState("");
@@ -122,6 +123,12 @@ export default function Account() {
     const name = `${profile.firstName} ${profile.lastName}`.trim();
     return name || profile.username || "Your account";
   }, [profile.firstName, profile.lastName, profile.username]);
+  const profileCompletion = useMemo(() => {
+    const fields = [profile.firstName, profile.lastName, profile.email, profile.username, profile.bio, displayedAvatarUri];
+    return Math.round((fields.filter((value) => Boolean(value.trim())).length / fields.length) * 100);
+  }, [displayedAvatarUri, profile.bio, profile.email, profile.firstName, profile.lastName, profile.username]);
+  const allowedPermissions = Object.values(permissions).filter((permission) => permission.granted).length;
+  const appVersion = Constants.expoConfig?.version || "1.0.0";
 
   function updateProfileField(field: keyof ProfileForm, value: string) {
     setProfile((current) => ({ ...current, [field]: value }));
@@ -286,11 +293,10 @@ export default function Account() {
       <View style={styles.accountShell}>
       <View style={styles.pageHeading}>
         <Text style={styles.pageEyebrow}>Settings</Text>
-        <Text style={styles.pageTitle}>Your account</Text>
-        <Text style={styles.pageSubtitle}>Manage your personal details, security, notifications, and signed-in device.</Text>
       </View>
 
       <View style={styles.hero}>
+        <Ionicons color="rgba(255,255,255,0.06)" name="person-circle" size={170} style={styles.heroWatermark} />
         <View style={styles.avatarWrap}>
           {displayedAvatarUri ? <Image source={{ uri: displayedAvatarUri }} style={styles.avatar} /> : <Text style={styles.avatarText}>{initials(user?.first_name, user?.last_name, user?.username)}</Text>}
           <Pressable accessibilityLabel="Change profile photo" accessibilityRole="button" disabled={avatarSaving} onPress={pickAvatar} style={styles.avatarButton}>
@@ -307,8 +313,16 @@ export default function Account() {
         </View>
       </View>
 
+      <View style={styles.healthHeading}><View><Text style={styles.groupLabel}>Account health</Text><Text style={styles.healthTitle}>Everything in one place</Text></View><View style={styles.healthBadge}><View style={styles.activeDotSmall} /><Text style={styles.healthBadgeText}>Protected</Text></View></View>
+      <View style={styles.healthGrid}>
+        <SmartMetric accent="#0891b2" icon="person" label="Profile" onPress={() => setExpandedSection("profile")} value={`${profileCompletion}%`} />
+        <SmartMetric accent="#7c3aed" icon="shield-checkmark" label="Security" onPress={() => setExpandedSection("security")} value="Active" />
+        <SmartMetric accent="#16a34a" icon="options" label="Permissions" onPress={() => setExpandedSection("permissions")} value={`${allowedPermissions}/4`} />
+        <SmartMetric accent="#d97706" icon="help-buoy" label="Support" onPress={() => setExpandedSection("about")} value="Ready" />
+      </View>
+
       <Text style={styles.groupLabel}>Account settings</Text>
-      <AccountSection active={expandedSection === "profile"} icon="person-outline" onPress={() => toggleSection("profile")} subtitle="Name, email, photo, and bio" title="Profile">
+      <AccountSection accent="#0891b2" active={expandedSection === "profile"} icon="person-outline" onPress={() => toggleSection("profile")} subtitle="Name, email, photo, and bio" title="Profile">
         <View style={styles.card}>
           <LabeledInput label="Username" onChangeText={(value) => updateProfileField("username", value)} placeholder="Your username" value={profile.username} autoCapitalize="none" />
           <Text style={styles.fieldHint}>3–100 letters, numbers, dots, dashes, or underscores.</Text>
@@ -324,7 +338,7 @@ export default function Account() {
         </View>
       </AccountSection>
 
-      <AccountSection active={expandedSection === "security"} icon="shield-checkmark-outline" onPress={() => toggleSection("security")} subtitle="Password and recovery options" title="Account & security">
+      <AccountSection accent="#7c3aed" active={expandedSection === "security"} icon="shield-checkmark-outline" onPress={() => toggleSection("security")} subtitle="Password and recovery options" title="Account & security">
         <View style={styles.card}>
           <View style={styles.sectionIntro}><Ionicons name="lock-closed-outline" color={colors.primaryDark} size={20} /><Text style={styles.sectionIntroText}>Use at least 8 characters with a letter and a number.</Text></View>
           <PasswordInput label="Current password" onToggle={() => togglePassword("currentPassword")} onChangeText={setCurrentPassword} placeholder="Enter current password" secure={!visiblePasswords.currentPassword} value={currentPassword} />
@@ -342,7 +356,7 @@ export default function Account() {
         </View>
       </AccountSection>
 
-      <AccountSection active={expandedSection === "permissions"} icon="options-outline" onPress={() => toggleSection("permissions")} subtitle="Camera, photos, contacts, and alerts" title="App permissions">
+      <AccountSection accent="#16a34a" active={expandedSection === "permissions"} icon="options-outline" onPress={() => toggleSection("permissions")} subtitle="Camera, photos, contacts, and alerts" title="App permissions">
         <View style={styles.card}>
           <View style={styles.permissionIntro}><Ionicons name="shield-checkmark-outline" color={colors.primaryDark} size={20} /><Text style={styles.permissionIntroText}>You stay in control. Permissions are requested only when a feature needs them.</Text></View>
           <View style={styles.permissionGrid}>
@@ -356,26 +370,35 @@ export default function Account() {
         </View>
       </AccountSection>
 
-      <AccountSection active={expandedSection === "session"} icon="phone-portrait-outline" onPress={() => toggleSection("session")} subtitle="Current device and sign out" title="Session">
+      <AccountSection accent={colors.primaryDark} active={expandedSection === "about"} icon="apps-outline" onPress={() => toggleSection("about")} subtitle="Notifications, support, and app details" title="App & support">
         <View style={styles.card}>
-          <View style={styles.deviceRow}>
-            <View style={styles.deviceIcon}><Ionicons name="phone-portrait-outline" color={colors.primaryDark} size={22} /></View>
-            <View style={styles.deviceCopy}><Text style={styles.deviceTitle}>This device</Text><Text style={styles.deviceText}>Signed in as {profile.username || "this user"}</Text></View>
-            <View style={styles.activeDot} />
-          </View>
-          <Text style={styles.helpText}>Signing out removes your session from this device only. Your account and information remain safe.</Text>
-          <Pressable onPress={confirmSignOut} style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
-            <Ionicons name="log-out-outline" color={colors.danger} size={18} />
-            <Text style={styles.signOutText}>Sign out of this device</Text>
-          </Pressable>
+          <SettingsLink icon="notifications-outline" label="Notification centre" onPress={() => router.push("/(tabs)/notifications")} value="View updates" />
+          <SettingsLink icon="help-circle-outline" label="Help & feedback" onPress={() => router.push("/(tabs)/support")} value="Contact us" />
+          <SettingsLink icon="settings-outline" label="Device settings" onPress={() => Linking.openSettings()} value="Permissions" />
+          <View style={styles.appInfo}><View style={styles.appMark}><Text style={styles.appMarkText}>PC</Text></View><View style={styles.deviceCopy}><Text style={styles.deviceTitle}>Pendeza Connect</Text><Text style={styles.deviceText}>Version {appVersion} · Secure mobile workspace</Text></View></View>
+          <View style={styles.privacyNote}><Ionicons color={colors.primaryDark} name="shield-checkmark-outline" size={18} /><Text style={styles.privacyText}>Your account data is protected and only shown according to your assigned role.</Text></View>
         </View>
       </AccountSection>
+
+      <View style={styles.sessionCard}>
+        <View style={styles.sessionHeading}><View><Text style={styles.sessionEyebrow}>Current session</Text><Text style={styles.sessionTitle}>Signed in on this device</Text></View><View style={styles.sessionStatus}><View style={styles.activeDotSmall} /><Text style={styles.sessionStatusText}>Active</Text></View></View>
+        <View style={styles.deviceRow}>
+          <View style={[styles.deviceIcon, { backgroundColor: "#ffedd5" }]}><Ionicons name="phone-portrait-outline" color="#d97706" size={22} /></View>
+          <View style={styles.deviceCopy}><Text style={styles.deviceTitle}>This {Platform.OS === "ios" ? "iPhone or iPad" : Platform.OS === "android" ? "Android device" : "browser"}</Text><Text style={styles.deviceText}>{profile.username || "Signed-in user"} · App {appVersion}</Text></View>
+        </View>
+        <View style={styles.secureSession}><Ionicons color={colors.success} name="lock-closed" size={16} /><Text style={styles.secureSessionText}>Your authentication is protected by encrypted device storage.</Text></View>
+        <Pressable accessibilityLabel="Sign out of this device" accessibilityRole="button" onPress={confirmSignOut} style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
+          <Ionicons name="log-out-outline" color="white" size={19} />
+          <Text style={styles.signOutText}>Sign out</Text>
+        </Pressable>
+      </View>
       </View>
     </Screen>
   );
 }
 
 function AccountSection({
+  accent,
   active,
   children,
   icon,
@@ -383,6 +406,7 @@ function AccountSection({
   subtitle,
   title
 }: {
+  accent: string;
   active: boolean;
   children: React.ReactNode;
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -391,20 +415,32 @@ function AccountSection({
   title: string;
 }) {
   return (
-    <View style={[styles.sectionWrap, active && styles.sectionWrapActive]}>
+    <View style={[styles.sectionWrap, active && styles.sectionWrapActive, active && { borderColor: `${accent}55` }]}>
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: active }} onPress={onPress} style={({ pressed }) => [styles.sectionButton, active && styles.sectionButtonActive, pressed && styles.pressed]}>
-        <View style={[styles.sectionIcon, active && styles.sectionIconActive]}>
-          <Ionicons name={icon} color={colors.primaryDark} size={20} />
+        <View style={[styles.sectionIcon, { backgroundColor: `${accent}12` }, active && { backgroundColor: accent }]}>
+          <Ionicons name={icon} color={active ? "white" : accent} size={20} />
         </View>
         <View style={styles.sectionCopy}>
           <Text style={styles.sectionTitle}>{title}</Text>
           <Text style={styles.sectionSubtitle}>{subtitle}</Text>
         </View>
-        <View style={styles.chevron}><Ionicons name={active ? "chevron-up" : "chevron-down"} color={active ? colors.primaryDark : colors.muted} size={18} /></View>
+        <View style={[styles.chevron, active && { backgroundColor: `${accent}14` }]}><Ionicons name={active ? "chevron-up" : "chevron-down"} color={active ? accent : colors.muted} size={18} /></View>
       </Pressable>
       {active ? <View style={styles.sectionContent}>{children}</View> : null}
     </View>
   );
+}
+
+function SmartMetric({ accent, icon, label, onPress, value }: { accent: string; icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; onPress: () => void; value: string }) {
+  return <Pressable accessibilityLabel={`${label}, ${value}`} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.smartMetric, { backgroundColor: `${accent}0C`, borderColor: `${accent}25` }, pressed && styles.pressed]}>
+    <Ionicons color={`${accent}10`} name={icon} size={55} style={styles.metricWatermark} />
+    <View style={[styles.metricIcon, { backgroundColor: accent }]}><Ionicons color="white" name={icon} size={16} /></View>
+    <View style={styles.metricCopy}><Text style={[styles.metricValue, { color: accent }]}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>
+  </Pressable>;
+}
+
+function SettingsLink({ icon, label, onPress, value }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; onPress: () => void; value: string }) {
+  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.settingsLink, pressed && styles.pressed]}><View style={styles.settingDetailIcon}><Ionicons color={colors.primaryDark} name={icon} size={18} /></View><Text style={styles.settingDetailText}>{label}</Text><Text style={styles.settingsLinkValue}>{value}</Text><Ionicons color={colors.muted} name="chevron-forward" size={16} /></Pressable>;
 }
 
 function LabeledInput({
@@ -477,6 +513,10 @@ function SecondaryButton({ icon, loading, onPress, text }: { icon: React.Compone
 const styles = StyleSheet.create({
   accountShell: { alignSelf: "center", maxWidth: 840, width: "100%" },
   activeDot: { backgroundColor: colors.success, borderColor: "#dcfce7", borderRadius: 999, borderWidth: 4, height: 16, width: 16 },
+  activeDotSmall: { backgroundColor: colors.success, borderRadius: 5, height: 7, width: 7 },
+  appInfo: { alignItems: "center", flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  appMark: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: 14, height: 44, justifyContent: "center", width: 44 },
+  appMarkText: { color: "white", fontSize: 13, fontWeight: "900" },
   avatar: { borderRadius: 40, height: 80, width: 80 },
   avatarButton: { alignItems: "center", backgroundColor: colors.primary, borderColor: "white", borderRadius: 18, borderWidth: 2, bottom: -2, height: 36, justifyContent: "center", position: "absolute", right: -2, width: 36 },
   avatarText: { color: colors.primaryDark, fontSize: 23, fontWeight: "900" },
@@ -502,10 +542,21 @@ const styles = StyleSheet.create({
   helpText: { color: colors.muted, lineHeight: 20, marginBottom: spacing.md },
   hero: { alignItems: "center", backgroundColor: colors.primaryDark, borderRadius: radius.lg, flexDirection: "row", gap: spacing.lg, marginBottom: spacing.xl, overflow: "hidden", padding: spacing.lg, shadowColor: "#064e3b", shadowOffset: { height: 5, width: 0 }, shadowOpacity: 0.2, shadowRadius: 14 },
   heroCopy: { flex: 1, minWidth: 0 },
+  heroWatermark: { position: "absolute", right: -35, top: -35 },
+  healthBadge: { alignItems: "center", backgroundColor: "#ecfdf5", borderRadius: 999, flexDirection: "row", gap: 6, paddingHorizontal: spacing.sm, paddingVertical: 6 },
+  healthBadgeText: { color: colors.success, fontSize: 9, fontWeight: "900", textTransform: "uppercase" },
+  healthGrid: { columnGap: spacing.sm, flexDirection: "row", flexWrap: "wrap", marginBottom: spacing.xl, rowGap: spacing.sm },
+  healthHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm },
+  healthTitle: { color: colors.text, fontSize: 17, fontWeight: "900", marginLeft: spacing.xs, marginTop: -4 },
   iconButton: { alignItems: "center", height: 50, justifyContent: "center", width: 50 },
   input: { backgroundColor: "#f8fafc", borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, fontSize: 16, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   inputGroup: { marginBottom: spacing.md },
   label: { color: colors.text, fontSize: 13, fontWeight: "800", marginBottom: spacing.xs },
+  metricCopy: { flex: 1 },
+  metricIcon: { alignItems: "center", borderRadius: 10, height: 32, justifyContent: "center", width: 32 },
+  metricLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", marginTop: 1, textTransform: "uppercase" },
+  metricValue: { fontSize: 14, fontWeight: "900" },
+  metricWatermark: { bottom: -15, position: "absolute", right: -7 },
   muted: { color: "rgba(255,255,255,0.76)", lineHeight: 20, marginTop: spacing.xs },
   name: { color: "white", fontSize: 22, fontWeight: "900" },
   pageEyebrow: { color: colors.primaryDark, fontSize: 11, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
@@ -551,13 +602,24 @@ const styles = StyleSheet.create({
   sectionTitle: { color: colors.text, fontSize: 16, fontWeight: "900" },
   sectionWrap: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, marginBottom: spacing.md, overflow: "hidden" },
   sectionWrapActive: { borderColor: "#99f6e4", shadowColor: "#0f172a", shadowOpacity: 0.04, shadowRadius: 10 },
+  sessionCard: { backgroundColor: colors.surface, borderColor: "#fed7aa", borderRadius: radius.lg, borderWidth: 1, marginTop: spacing.lg, overflow: "hidden", padding: spacing.lg, shadowColor: "#9a3412", shadowOffset: { height: 3, width: 0 }, shadowOpacity: 0.06, shadowRadius: 10 },
+  sessionEyebrow: { color: "#d97706", fontSize: 9, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
+  sessionHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.md },
+  sessionStatus: { alignItems: "center", backgroundColor: "#ecfdf5", borderRadius: 999, flexDirection: "row", gap: 6, paddingHorizontal: spacing.sm, paddingVertical: 6 },
+  sessionStatusText: { color: colors.success, fontSize: 9, fontWeight: "900", textTransform: "uppercase" },
+  sessionTitle: { color: colors.text, fontSize: 17, fontWeight: "900", marginTop: 2 },
+  secureSession: { alignItems: "center", backgroundColor: "#ecfdf5", borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md, padding: spacing.md },
+  secureSessionText: { color: colors.success, flex: 1, fontSize: 11, fontWeight: "700", lineHeight: 16 },
   settingDetail: { alignItems: "center", borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: "row", gap: spacing.sm, minHeight: 52, paddingVertical: spacing.sm },
   settingDetailIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 12, height: 34, justifyContent: "center", width: 34 },
   settingDetailText: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "700" },
-  signOutButton: { alignItems: "center", alignSelf: "stretch", backgroundColor: "#fef2f2", borderColor: "#fecaca", borderRadius: radius.md, borderWidth: 1, flexDirection: "row", gap: spacing.sm, justifyContent: "center", minHeight: 50, paddingHorizontal: spacing.lg },
-  signOutText: { color: colors.danger, fontWeight: "900" },
+  signOutButton: { alignItems: "center", alignSelf: "stretch", backgroundColor: colors.danger, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, justifyContent: "center", minHeight: 52, paddingHorizontal: spacing.lg },
+  signOutText: { color: "white", fontSize: 15, fontWeight: "900" },
   settingsButton: { alignItems: "center", alignSelf: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "center", paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   settingsButtonText: { color: colors.primaryDark, fontSize: 12, fontWeight: "900" },
+  settingsLink: { alignItems: "center", borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: "row", gap: spacing.sm, minHeight: 58, paddingVertical: spacing.sm },
+  settingsLinkValue: { color: colors.muted, fontSize: 10, fontWeight: "700" },
+  smartMetric: { alignItems: "center", borderRadius: radius.md, borderWidth: 1, flexBasis: "47%", flexDirection: "row", flexGrow: 1, gap: spacing.sm, minHeight: 66, overflow: "hidden", padding: spacing.sm },
   subTitle: { color: colors.text, fontSize: 17, fontWeight: "900", marginBottom: spacing.xs },
   success: { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" },
   successText: { color: colors.success },

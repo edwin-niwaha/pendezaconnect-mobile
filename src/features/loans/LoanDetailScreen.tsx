@@ -189,6 +189,15 @@ export function LoanDetailScreen() {
     ]);
   }
 
+  function showApprovalReason() {
+    const approvalReason = loan?.reason_for_approval?.trim();
+    Alert.alert(
+      "Reason for approval",
+      approvalReason || "No reason for approval was provided.",
+      [{ text: "Close" }]
+    );
+  }
+
   if (loading && !loan) return <LoadingState />;
 
   return (
@@ -224,6 +233,19 @@ export function LoanDetailScreen() {
               })}
             </View>
             <Text style={styles.muted}>{loan.status.toLowerCase().includes("reject") ? "This application was not approved. Review the reason below and update it if changes are allowed." : `Current stage: ${formatLabel(loan.status)}`}</Text>
+            {loan.reason_for_approval?.trim() ? (
+              <Pressable
+                accessibilityHint="Opens the approval reason in a message box"
+                accessibilityLabel="View reason for approval"
+                accessibilityRole="button"
+                onPress={showApprovalReason}
+                style={styles.approvalReasonButton}
+              >
+                <Ionicons name="chatbox-ellipses-outline" color={colors.primaryDark} size={18} />
+                <Text style={styles.approvalReasonButtonText}>View approval reason</Text>
+                <Ionicons name="chevron-forward" color={colors.primaryDark} size={17} />
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>Financial summary</Text><Text style={styles.sectionHint}>{loan.loan_period_months} month term</Text></View>
@@ -379,6 +401,8 @@ function FinanceTile({ danger = false, icon, label, value }: { danger?: boolean;
 
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm },
+  approvalReasonButton: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: radius.md, flexDirection: "row", gap: spacing.sm, justifyContent: "center", marginTop: spacing.xs, minHeight: 44, paddingHorizontal: spacing.md },
+  approvalReasonButtonText: { color: colors.primaryDark, flex: 1, fontWeight: "900" },
   borrower: { color: "rgba(255,255,255,0.72)", fontSize: 11, marginTop: 2, maxWidth: 170 },
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, marginBottom: spacing.md, padding: spacing.md },
   cardTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },

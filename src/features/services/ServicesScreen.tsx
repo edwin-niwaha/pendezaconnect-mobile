@@ -24,6 +24,7 @@ export function ServicesScreen() {
     ...(staff ? [{ accent: "#0891b2", icon: "people" as const, route: "/(tabs)/clients" as const, subtitle: "Client directory", title: "Clients" }] : []),
     ...(canUseLoans ? [{ accent: colors.accent, icon: "cash" as const, route: "/(tabs)/loans" as const, subtitle: "Applications & balances", title: "Loans" }] : []),
     ...(canUseSavings ? [{ accent: "#16a34a", icon: "wallet" as const, route: "/(tabs)/savings" as const, subtitle: "Deposits & requests", title: "Savings" }] : []),
+    ...(staff ? [{ accent: "#7c3aed", icon: "cube" as const, route: "/(tabs)/inventory" as const, subtitle: "Products & stock health", title: "Inventory" }] : []),
     ...(staff ? [{ accent: "#7c3aed", icon: "briefcase" as const, route: "/(tabs)/staff" as const, subtitle: "Team directory", title: "Staff" }] : []),
     { accent: colors.primaryDark, icon: "chatbubble-ellipses", route: "/(tabs)/support", subtitle: "Help & feedback", title: "Contact us" }
   ];

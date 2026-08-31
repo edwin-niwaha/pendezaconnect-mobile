@@ -19,6 +19,8 @@ const icons = {
   staff: "briefcase-outline",
   loans: "cash-outline",
   savings: "wallet-outline",
+  inventory: "cube-outline",
+  "inventory-alerts": "warning-outline",
   payments: "receipt-outline",
   support: "help-circle-outline",
   account: "person-circle-outline"
@@ -79,6 +81,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="loans/[id]" options={{ title: "Loan Details", href: null }} />
       <Tabs.Screen name="savings" options={{ title: "Savings", href: null }} />
       <Tabs.Screen name="savings/[id]" options={{ title: "Savings Details", href: null }} />
+      <Tabs.Screen name="inventory" options={{ title: "Inventory", href: null }} />
+      <Tabs.Screen name="inventory-alerts" options={{ title: "Stock Alerts", href: null }} />
       <Tabs.Screen name="payments" options={{ title: "Payments", href: null }} />
       <Tabs.Screen name="notifications" options={{ title: "Notifications", href: null }} />
       <Tabs.Screen name="support" options={{ title: "Contact us", href: null }} />

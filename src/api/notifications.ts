@@ -1,4 +1,5 @@
 import { api } from "@/api/client";
+import { isAxiosError } from "axios";
 import type { Paginated } from "@/types";
 
 export type DeviceInstallationPayload = {
@@ -49,4 +50,34 @@ export async function markAllServerNotificationsRead() {
 
 export async function clearServerNotifications() {
   await api.delete("/notifications/clear/");
+}
+
+export type NotificationWorkQueue = {
+  id: "activations" | "feedback" | "withdrawals";
+  title: string;
+  count: number;
+  items: {
+    id: string;
+    title: string;
+    body: string;
+    web_path: string;
+    amount?: string;
+    client_id?: number;
+  }[];
+  links: { label: string; path: string }[];
+};
+
+export async function listNotificationWorkQueues() {
+  try {
+    const response = await api.get<{ queues: NotificationWorkQueue[] }>("/notifications/work-queues/");
+    return response.data.queues;
+  } catch (error) {
+    // This is an optional capability that older API deployments do not expose.
+    // Depending on the router configuration, an unavailable action can surface
+    // as either 404 or 405. In both cases the inbox remains fully usable.
+    if (isAxiosError(error) && [404, 405].includes(error.response?.status ?? 0)) {
+      return [];
+    }
+    throw error;
+  }
 }

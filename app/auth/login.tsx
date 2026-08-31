@@ -150,6 +150,14 @@ export default function Login() {
           );
         }
 
+        // Clear the SDK's previous account so each sign-in opens account selection.
+        // This does not revoke access or remove Google accounts from the device.
+        await withGoogleTimeout(
+          GoogleSignin.signOut(),
+          10000,
+          "Google could not reset account selection. Please try again."
+        );
+
         const signInResponse = await withGoogleTimeout(
           GoogleSignin.signIn(),
           30000,
