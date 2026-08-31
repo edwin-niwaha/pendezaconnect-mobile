@@ -1,7 +1,13 @@
 package org.pendeza.connect
 
 import android.app.Application
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.res.Configuration
+import android.media.AudioAttributes
+import android.net.Uri
+import android.os.Build
 
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
@@ -40,6 +46,7 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    createAccountUpdatesChannel()
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {
@@ -47,6 +54,29 @@ class MainApplication : Application(), ReactApplication {
     }
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
+  }
+
+  // Register before JS starts so background FCM notifications use the chime too.
+  // Never delete/recreate an existing channel: preserve the user's sound settings.
+  private fun createAccountUpdatesChannel() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    val manager = getSystemService(NotificationManager::class.java)
+    val channel = NotificationChannel(
+      "account-updates-v3", "Account updates · Pendeza chime", NotificationManager.IMPORTANCE_HIGH
+    ).apply {
+      description = "Loan, savings, payment, and account updates"
+      lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+      enableVibration(true)
+      vibrationPattern = longArrayOf(0, 160, 100, 160)
+      setSound(
+        Uri.parse("android.resource://$packageName/raw/pendeza_chime"),
+        AudioAttributes.Builder()
+          .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+          .build()
+      )
+    }
+    manager.createNotificationChannel(channel)
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {

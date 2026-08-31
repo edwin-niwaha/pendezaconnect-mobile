@@ -243,3 +243,7 @@ export type SponsorPayments = {
 };
 
 export type Paginated<T> = { count: number; next?: string | null; previous?: string | null; results: T[] };
+
+export type InventorySummary = { products: number; active_products: number; total_stock: number; low_stock: number; out_of_stock: number; stock_value: string | number };
+export type InventoryProduct = { id: number; sku: string; name: string; description: string; status: string; category_name?: string | null; supplier_name?: string | null; cost: string; price: string; stock_on_hand: number; stock_status: string; margin: string; updated_at: string };
+export type StockMovement = { id: number; product: number; product_name: string; variant?: number | null; variant_name?: string | null; movement_type: string; movement_label: string; quantity: number; reference: string; notes: string; created_by_name?: string | null; created_at: string };

@@ -20,7 +20,10 @@
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "CAMERA",
-        "READ_CONTACTS"
+        "READ_CONTACTS",
+        "POST_NOTIFICATIONS",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
       ],
       "blockedPermissions": [
         "android.permission.WRITE_CONTACTS",
@@ -52,7 +55,8 @@
         "expo-notifications",
         {
           "color": "#0f766e",
-          "defaultChannel": "account-updates"
+          "defaultChannel": "account-updates-v3",
+          "sounds": ["./assets/sounds/pendeza_chime.wav"]
         }
       ],
       [
